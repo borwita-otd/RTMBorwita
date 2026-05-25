@@ -8,9 +8,15 @@ function showPage(id) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   document.querySelector(`.nav-item[data-page="${id}"]`).classList.add('active');
+  
   if (id === 'dashboard') renderDashboard();
   if (id === 'recommendation') populateVacancyDropdown();
   if (id === 'masterfilter') renderPriorityEditor();
+  
+  if (id === 'talentsearch') {
+    initTalentSearchFilters();
+    renderTalentSearch();
+  }
 }
 
 // --- NAVIGATE FROM DASHBOARD TO RECOMMENDATION ---
@@ -1283,6 +1289,137 @@ function toggleTiebreaker(id, enabled) {
   cfg.tiebreakerEnabled[id] = enabled;
   savePriorityConfig(cfg);
   renderPriorityEditor();
+}
+
+// ==========================================================
+// --- TALENT SEARCH ---
+// ==========================================================
+
+function initTalentSearchFilters() {
+  if (HAV_DB.length === 0) return; // Pastikan data HAV sudah termuat
+
+  // Fungsi pembantu untuk mengisi dropdown
+  const populateDropdown = (id, field) => {
+    const select = document.getElementById(id);
+    // Jika opsi sudah lebih dari 1, berarti sudah terisi (tidak perlu diulang)
+    if (!select || select.options.length > 1) return; 
+    
+    // getUniqueHAVValues sudah ada sebelumnya di app.js milikmu
+    const values = getUniqueHAVValues(field); 
+    values.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      select.appendChild(opt);
+    });
+  };
+
+  populateDropdown('tsFilterDept', 'department');
+  populateDropdown('tsFilterRegion', 'regional');
+  populateDropdown('tsFilterGrade', 'grade');
+  populateDropdown('tsFilterPrinciple', 'principal');
+}
+
+function renderTalentSearch() {
+  if (HAV_DB.length === 0) return;
+
+  const dept = (document.getElementById('tsFilterDept')?.value || '').toLowerCase();
+  const region = (document.getElementById('tsFilterRegion')?.value || '').toLowerCase();
+  const grade = document.getElementById('tsFilterGrade')?.value || '';
+  const principle = (document.getElementById('tsFilterPrinciple')?.value || '').toLowerCase();
+  const q = (document.getElementById('tsSearch')?.value || '').toLowerCase();
+
+  // 1. Proses Filter
+  const filtered = HAV_DB.filter(k => {
+    if (dept && String(k.department || '').toLowerCase() !== dept) return false;
+    if (region && String(k.regional || '').toLowerCase() !== region) return false;
+    if (grade && k.grade !== grade) return false;
+    if (principle && String(k.principal || '').toLowerCase() !== principle) return false;
+    
+    if (q) {
+      const searchStr = [k.nik, k.name, k.position, k.branch, k.grade].join(' ').toLowerCase();
+      if (!searchStr.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // 2. Render UI
+  const body = document.getElementById('tsBody');
+  const noRes = document.getElementById('tsNoResult');
+  document.getElementById('tsResultCount').textContent = filtered.length + ' candidate(s) found';
+
+  if (filtered.length === 0) {
+    body.innerHTML = '';
+    noRes.classList.remove('hidden');
+  } else {
+    noRes.classList.add('hidden');
+    let html = '';
+    filtered.forEach((k, i) => {
+      
+      // Format Link WhatsApp
+      let phoneLink = '-';
+      if (k.phone) {
+        let raw = String(k.phone).replace(/[^\d]/g, '');
+        if (raw.startsWith('0')) raw = '62' + raw.substring(1);
+        else if (raw.startsWith('8')) raw = '62' + raw;
+        if (raw.length >= 10) phoneLink = `<a href="https://wa.me/${raw}" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:12px;">📱 ${raw}</a>`;
+      }
+      
+      // Format Status Karyawan
+      let empBadge = k.employeeStatus || '-';
+      const esLow = String(k.employeeStatus).toLowerCase();
+      if (esLow.includes('permanent') || esLow.includes('tetap')) empBadge = '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Permanent</span>';
+      else if (esLow.includes('acting')) empBadge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Acting</span>';
+      else if (esLow.includes('contract') || esLow.includes('kontrak')) empBadge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Contract</span>';
+
+      // Format Kesediaan Promosi
+      const keinginanRaw = String(k.keinginanPromosi || '').trim();
+      let keinginanCell = '<span style="color:#94a3b8;font-size:11px;font-style:italic">-</span>';
+      if (keinginanRaw) {
+        const kLow = keinginanRaw.toLowerCase();
+        let kBg, kColor;
+        if (kLow === 'tidak bersedia' || kLow.startsWith('tidak')) { kBg = '#fee2e2'; kColor = '#991b1b'; }
+        else if (kLow === 'bersedia' || (!kLow.startsWith('tidak') && kLow.includes('bersedia'))) { kBg = '#dcfce7'; kColor = '#166534'; }
+        else { kBg = '#f3f4f6'; kColor = '#374151'; }
+        keinginanCell = `<span style="display:inline-block;background:${kBg};color:${kColor};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${keinginanRaw}</span>`;
+      }
+
+      // Baris Tabel
+      html += `<tr>
+        <td><span class="row-num">${i + 1}</span></td>
+        <td style="font-weight:600;font-size:12px;">${k.nik}</td>
+        <td style="font-weight:500">${k.name}</td>
+        <td style="text-align:center">${k.age || '-'}</td>
+        <td style="font-size:12px;">${k.education || '-'}</td>
+        <td>${empBadge}</td>
+        <td style="font-size:12px;">${k.position}</td>
+        <td><span style="background:#eef2ff;color:var(--primary-dark);padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">${k.grade}</span></td>
+        <td style="font-size:12px;">${k.principal || '-'}</td>
+        <td style="font-size:12px;">${k.regional || '-'}</td>
+        <td style="font-weight:600;font-size:12px;">${k.branch}</td>
+        <td style="font-size:12px;">${k.department || '-'}</td>
+        <td>${phoneLink}</td>
+        <td><span style="font-weight:700;${k.rating === 'R1' ? 'color:#065f46;' : k.rating === 'R2' ? 'color:#1e40af;' : 'color:#6b7280;'}">${k.rating}</span></td>
+        <td style="text-align:center;font-weight:600;">${Number(k.ap12m).toFixed(2)}</td>
+        <td><span style="font-size:12px;font-weight:600;">${k.psiCur || '-'}</span></td>
+        <td style="font-weight:700;color:var(--primary-dark)">${k.havProyeksi || '-'}</td>
+        <td><span style="color:${k.p2k === 'Lulus' ? 'var(--success)' : 'var(--danger)'};font-weight:700">${k.p2k}</span></td>
+        <td style="font-size:12px;text-align:center;">${k.lengthOfService || '-'}</td>
+        <td>${keinginanCell}</td>
+        <td><span style="font-size:11px;color:#374151;">${k.kesediaanPenempatan || '-'}</span></td>
+      </tr>`;
+    });
+    body.innerHTML = html;
+  }
+}
+
+function resetTalentSearchFilters() {
+  document.getElementById('tsFilterDept').value = '';
+  document.getElementById('tsFilterRegion').value = '';
+  document.getElementById('tsFilterGrade').value = '';
+  document.getElementById('tsFilterPrinciple').value = '';
+  document.getElementById('tsSearch').value = '';
+  renderTalentSearch();
 }
 
 // --- INIT ---
