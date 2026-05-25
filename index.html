@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Talent Management System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-wrap">
+        <div class="logo-circle">TM</div>
+        <div>
+          <h1>Talent Mapping</h1>
+          <p>HR Management System</p>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Main Menu</div>
+      <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+        Dashboard Vacancy
+      </div>
+      <div class="nav-item" data-page="recommendation" onclick="showPage('recommendation')">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+        Recommendation RTM
+      </div>
+      <div class="nav-item" data-page="talentsearch" onclick="showPage('talentsearch')">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+        </svg>
+        Talent Search
+      </div>
+      <div class="nav-item" data-page="masterfilter" onclick="showPage('masterfilter')">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+        </svg>
+        Master Filter
+      </div>
+      <div class="nav-label" style="margin-top:10px;">Resources</div>
+      <a class="nav-item" href="https://docs.google.com/spreadsheets/d/1h5EsS4g5Iw5mhnbe-cHmIwZRwk3SWEu_rJvoXs9foec/edit?usp=sharing" target="_blank" style="text-decoration:none;">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+        </svg>
+        HAV Matrix Database
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">AD</div>
+        <div>
+          <div class="user-name">Admin</div>
+          <div class="user-role">HR Management</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="location.reload()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          style="margin-right:5px;vertical-align:middle;">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+        Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main" id="mainContent">
+
+    <!-- ══ DASHBOARD VACANCY ══════════════════════════════ -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div class="page-header-text">
+          <h2>Dashboard Vacancy</h2>
+          <p>Overview vacancy requests — klik <strong>Posisi Vacant</strong> untuk langsung generate rekomendasi</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <span style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;">Filter Tanggal:</span>
+          <input type="date" id="dashDateStart" onchange="renderDashboard()" class="input-field" style="width:130px;padding:6px 10px;font-size:12px;">
+          <span style="color:#9ca3af;font-size:12px;">s/d</span>
+          <input type="date" id="dashDateEnd" onchange="renderDashboard()" class="input-field" style="width:130px;padding:6px 10px;font-size:12px;">
+          <button onclick="document.getElementById('dashDateStart').value='';document.getElementById('dashDateEnd').value='';renderDashboard()" class="btn-reset" style="padding:6px 12px;font-size:12px;">Reset</button>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card sc-total">
+          <div class="stat-icon-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+          </div>
+          <div class="stat-row">
+            <div class="stat-label">Total Vacancy</div>
+            <div class="stat-value" id="statTotal">0</div>
+          </div>
+        </div>
+        <div class="stat-card sc-open">
+          <div class="stat-icon-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </div>
+          <div class="stat-row">
+            <div class="stat-label">Open</div>
+            <div class="stat-value" id="statOpen">0</div>
+          </div>
+        </div>
+        <div class="stat-card sc-fulfilled">
+          <div class="stat-icon-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+              <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            </svg>
+          </div>
+          <div class="stat-row">
+            <div class="stat-label">Internal</div>
+            <div class="stat-value" id="statFulfilled">0</div>
+          </div>
+        </div>
+        <div class="stat-card" style="border-color:#d1fae5;">
+          <div class="stat-icon-wrap" style="background:#d1fae5;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#065f46" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          </div>
+          <div class="stat-row">
+            <div class="stat-label" style="color:#065f46;">Closed</div>
+            <div class="stat-value" id="statClosed" style="color:#065f46;">0</div>
+          </div>
+        </div>
+        <div class="stat-card sc-hold">
+          <div class="stat-icon-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="4" width="4" height="16" />
+              <rect x="14" y="4" width="4" height="16" />
+            </svg>
+          </div>
+          <div class="stat-row">
+            <div class="stat-label">On Hold</div>
+            <div class="stat-value" id="statHold">0</div>
+          </div>
+        </div>
+        <div class="stat-card sc-cancel">
+          <div class="stat-icon-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+          </div>
+          <div class="stat-row">
+            <div class="stat-label">Cancelled</div>
+            <div class="stat-value" id="statCancel">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOLBAR -->
+      <div class="toolbar">
+        <select id="dashStatusFilter" onchange="renderDashboard()" class="select-field">
+          <option value="ALL">All Status</option>
+          <option value="OPEN" selected>Open</option>
+          <option value="HOLD">On Hold</option>
+          <option value="CLOSED_ONLY">Closed</option>
+          <option value="CANCEL">Cancelled</option>
+        </select>
+
+        <div class="search-wrap">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input type="text" id="dashSearch" class="input-field" style="padding-left:34px;width:100%;"
+            placeholder="Cari nama, posisi, region..." oninput="renderDashboard()">
+        </div>
+      </div>
+
+      <!-- TABLE CARD -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="card-header-row" style="padding:18px 20px 0;">
+          <div class="card-title" style="margin-bottom:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            </svg>
+            Vacancy Requests
+          </div>
+          <div class="card-actions">
+            <span class="vacancy-click-hint">
+              Klik posisi untuk generate rekomendasi
+            </span>
+            <button class="btn btn-success btn-sm" onclick="downloadDashboardExcel()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Excel
+            </button>
+          </div>
+        </div>
+        <div style="padding:14px 20px 20px;">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Requested By</th>
+                  <th>Vacant Position</th>
+                  <th>Level</th>
+                  <th>Region</th>
+                  <th>Branch</th>
+                  <th>Work Location</th>
+                  <th>Principle</th>
+                  <th>Reason</th>
+                  <th>Department</th>
+                  <th>Talent Rec</th>
+                  <th>Talent List</th>
+                  <th>Manpower Needs</th>
+                  <th>Panel Interview</th>
+                  <th>Successor Name</th>
+                  <th>Projected Branch</th>
+                  <th>Effective Date</th>
+                  <th>Panel Month</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="dashBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ RECOMMENDATION RTM ═════════════════════════════ -->
+    <div class="page" id="page-recommendation">
+      <div class="page-header">
+        <div class="page-header-text">
+          <h2>Recommendation RTM</h2>
+          <p>Auto-filter eligible candidates berdasarkan vacancy requirements</p>
+        </div>
+      </div>
+
+      <!-- Vacancy Selector -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          Pilih Vacancy
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div id="vacancyDropdown" style="flex:1;position:relative;">
+            <input type="text" id="recVacancyInput" placeholder="Ketik nama posisi atau pilih dari list..."
+              autocomplete="off" onclick="toggleVacancyDropdown(true)" oninput="filterVacancyDropdown()"
+              class="input-field" style="width:100%;padding:11px 16px;font-size:14px;">
+            <div id="vacancyDropdownList"
+              style="display:none;position:absolute;top:100%;left:0;width:max-content;min-width:100%;max-height:280px;overflow-y:auto;background:#fff;border:1.5px solid var(--border);border-top:none;border-radius:0 0 8px 8px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.1);">
+            </div>
+          </div>
+          <button class="btn" onclick="generateRecommendation()" style="white-space:nowrap;padding:11px 20px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            Generate Candidates
+          </button>
+        </div>
+        <div id="recVacancyInfo" class="hidden rec-info-box"></div>
+      </div>
+
+      <!-- Filter Applied -->
+      <div id="recFilterInfo" class="hidden card filter-summary-card" style="padding:16px 20px;">
+        <div style="font-size:13px;font-weight:700;color:#92400e;display:flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+          </svg>
+          Filter Applied
+        </div>
+        <div id="recFilterDetails" class="filter-tags"></div>
+      </div>
+
+      <!-- Results -->
+      <div id="recResult" class="hidden">
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div class="card-header-row" style="padding:18px 20px 0;">
+            <div class="card-title" style="margin-bottom:0;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+              Recommended Candidates
+            </div>
+            <span id="recCount" style="font-size:12px;color:var(--muted);font-weight:600;margin-left:4px;"></span>
+            <div class="card-actions">
+              <div class="search-wrap" style="max-width:260px;">
+                <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" id="recSearch" class="input-field" style="padding-left:32px;width:100%;"
+                  placeholder="Cari nama, NIK, branch..." oninput="renderRecommendationTable()">
+              </div>
+              <button class="btn btn-purple btn-sm" onclick="saveCheckedToVacancy()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+                Save to Talent List
+              </button>
+              <button class="btn btn-success btn-sm" onclick="downloadRecExcel()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download Excel
+              </button>
+            </div>
+          </div>
+
+          <div
+            style="padding:10px 20px;background:#f0f4ff;border-top:1px solid #e0e7ff;border-bottom:1px solid #e0e7ff;font-size:12px;color:#4338ca;">
+            ✦ Top 5 kandidat disorot berdasarkan skor prioritas tertinggi.
+            Kandidat dari <strong>Branch/Region yang sama</strong> mendapat prioritas utama.
+          </div>
+
+          <div style="padding:0 20px 20px;">
+            <div class="table-wrap" style="margin-top:14px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" id="recCheckAll" onchange="toggleAllRecChecks(this.checked)"
+                        title="Select All" style="cursor:pointer;width:14px;height:14px;"></th>
+                    <th>No</th>
+                    <th>NIK</th>
+                    <th>Name</th>
+                    <th>Age</th>
+                    <th>Education</th>
+                    <th>Emp. Status</th>
+                    <th>Position</th>
+                    <th>Job Grade</th>
+                    <th>Principal</th>
+                    <th>Region</th>
+                    <th>Branch</th>
+                    <th>Department</th>
+                    <th>WhatsApp</th>
+                    <th>PA Level</th>
+                    <th>AP12M</th>
+                    <th>Psychotest</th>
+                    <th>HAV (Projected)</th>
+                    <th>P2K</th>
+                    <th>Length of Service</th>
+                    <th>Promotion Willingness</th>
+                    <th>Placement Readiness</th>
+                    <th>Match Priority</th>
+                  </tr>
+                </thead>
+                <tbody id="recBody"></tbody>
+              </table>
+            </div>
+            <p id="recNoResult" class="hidden empty-msg">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Tidak ada kandidat yang memenuhi kriteria filter.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TALENT SEARCH ═════════════════════════════════ -->
+    <div class="page" id="page-talentsearch">
+      <div class="page-header">
+        <div class="page-header-text">
+          <h2>Talent Search</h2>
+          <p>Search candidates freely — not tied to any vacancy</p>
+        </div>
+      </div>
+
+      <!-- FILTER CARD -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+          </svg>
+          Filter Candidates
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Department</label>
+            <select id="tsFilterDept" onchange="renderTalentSearch()" class="select-field" style="width:200px;">
+              <option value="">All Departments</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Region</label>
+            <select id="tsFilterRegion" onchange="renderTalentSearch()" class="select-field" style="width:180px;">
+              <option value="">All Regions</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Level (Job Grade)</label>
+            <select id="tsFilterGrade" onchange="renderTalentSearch()" class="select-field" style="width:160px;">
+              <option value="">All Grades</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Principle</label>
+            <select id="tsFilterPrinciple" onchange="renderTalentSearch()" class="select-field" style="width:180px;">
+              <option value="">All Principles</option>
+            </select>
+          </div>
+          <button onclick="resetTalentSearchFilters()" class="btn-reset" style="padding:8px 16px;">Reset Filters</button>
+        </div>
+      </div>
+
+      <!-- RESULTS -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="card-header-row" style="padding:16px 20px 0;">
+          <div class="card-title" style="margin-bottom:0;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <span id="tsResultCount">0 candidate(s) found</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div class="search-wrap" style="width:260px;">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input type="text" id="tsSearch" class="input-field" style="padding-left:34px;width:100%;" placeholder="Search name, NIK, branch..." oninput="renderTalentSearch()">
+            </div>
+          </div>
+        </div>
+        <div style="padding:14px 20px 20px;">
+          <div class="table-wrap" style="margin-top:10px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>NIK</th>
+                  <th>Name</th>
+                  <th>Age</th>
+                  <th>Education</th>
+                  <th>Emp. Status</th>
+                  <th>Position</th>
+                  <th>Job Grade</th>
+                  <th>Principal</th>
+                  <th>Region</th>
+                  <th>Branch</th>
+                  <th>Department</th>
+                  <th>WhatsApp</th>
+                  <th>PA Level</th>
+                  <th>AP12M</th>
+                  <th>Psychotest</th>
+                  <th>HAV (Projected)</th>
+                  <th>P2K</th>
+                  <th>Length of Service</th>
+                  <th>Promotion Willingness</th>
+                  <th>Placement Readiness</th>
+                </tr>
+              </thead>
+              <tbody id="tsBody"></tbody>
+            </table>
+          </div>
+          <p id="tsNoResult" class="hidden empty-msg">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            No candidates match the selected filters.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ MASTER FILTER ══════════════════════════════════ -->
+    <div class="page" id="page-masterfilter">
+      <div class="page-header">
+        <div class="page-header-text">
+          <h2>Master Filter</h2>
+          <p>Konfigurasi filter & urutan prioritas per Vacancy Level untuk Recommendation RTM</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+          </svg>
+          Pilih Vacancy Level & Department
+        </div>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:14px;">Setiap kombinasi level + department bisa punya
+          setting filter yang
+          berbeda. Kosongkan department untuk apply ke <strong>semua department</strong>.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Vacancy
+              Level</label>
+            <select id="mfLevelSelect" onchange="renderMasterFilter()" class="select-field" style="width:220px;">
+              <option value="">-- Pilih Level --</option>
+              <option value="G2">G2 — Coordinator</option>
+              <option value="G3">G3 — Supervisor</option>
+              <option value="G4">G4 — Manager</option>
+              <option value="G5">G5 — Head</option>
+              <option value="G6">G6 — GM</option>
+              <option value="G7">G7 — Direktur</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Department</label>
+            <select id="mfDeptSelect" onchange="renderMasterFilter()" class="select-field" style="width:240px;">
+              <option value="">Pilih Department</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="mfContent" class="hidden">
+        <div class="card">
+          <div class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
+            </svg>
+            Filter — Vacancy Level <span id="mfLevelName" style="color:var(--primary);font-weight:800;"></span>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;align-items:center;">
+            <span
+              style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:700;">✓
+              Include</span>
+            <span style="font-size:12px;color:#6b7280;">= Grade yang ditampilkan sebagai kandidat</span>
+            <span style="margin:0 6px;color:#d1d5db;">|</span>
+            <span
+              style="background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:700;">✗
+              Exclude</span>
+            <span style="font-size:12px;color:#6b7280;">= Nilai yang <strong>tidak</strong> masuk rekomendasi (centang
+              yang ingin diblokir)</span>
+          </div>
+          <p style="font-size:12px;color:#6b7280;margin-bottom:20px;">Kandidat dari <strong>Talent Rec</strong> vacancy
+            selalu bypass semua filter.</p>
+
+          <div class="form-grid" style="gap:24px;">
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">🎓 Candidate Grade <span
+                  style="background:#dcfce7;color:#166534;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">INCLUDE</span></label>
+              <p style="font-size:11px;color:#6b7280;margin-bottom:8px;">Grade kandidat yang ditampilkan untuk vacancy
+                level ini</p>
+              <div id="mfCandidateGrades" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">🎂 Max Usia</label>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="number" id="mfMaxAge" value="45" min="20" max="60" class="input-field" style="width:90px;">
+                <span style="font-size:13px;color:#6b7280;font-weight:500;">tahun</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">📊 Rating PA <span
+                  style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">EXCLUDE</span></label>
+              <p style="font-size:11px;color:#6b7280;margin-bottom:8px;">Centang rating yang ingin diblokir</p>
+              <div id="mfExcludeRating" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">📈 APM Level <span
+                  style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">EXCLUDE</span></label>
+              <p style="font-size:11px;color:#6b7280;margin-bottom:8px;">Centang APM Level yang ingin diblokir</p>
+              <div id="mfExcludeAPM" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">✅ CEK P2K <span
+                  style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">EXCLUDE</span></label>
+              <div id="mfExcludeP2K" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
+            </div>
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">🧠 Psikotest <span
+                  style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">EXCLUDE</span></label>
+              <div id="mfExcludePsi" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
+            </div>
+            <div class="form-group full">
+              <label style="font-weight:700;margin-bottom:8px;">⚠️ CEK SP <span
+                  style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">EXCLUDE</span></label>
+              <div id="mfExcludeSP" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+          </div>
+          <button class="btn" onclick="saveMasterFilter()" style="margin-top:24px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            Save Filter untuk Level Ini
+          </button>
+        </div>
+
+        <!-- Priority Editor -->
+        <div class="card">
+          <div class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" />
+              <line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+            Urutan Prioritas Recommendation RTM
+          </div>
+          <p style="font-size:12px;color:#6b7280;margin-bottom:18px;">Drag ⠿ atau klik ▲▼ untuk ubah urutan. Toggle
+            <strong>Aktif</strong> untuk menonaktifkan kriteria.<br><em>Skor utama: item posisi 1 selalu menang dari
+              gabungan semua item di bawahnya.</em>
+          </p>
+
+          <div style="margin-bottom:20px;">
+            <div
+              style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding:7px 12px;background:#f3f4f6;border-radius:7px;display:flex;align-items:center;gap:6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+              Skor Utama — Menentukan urutan teratas kandidat
+            </div>
+            <div id="priorityEditorList"></div>
+          </div>
+
+          <div>
+            <div
+              style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding:7px 12px;background:#f3f4f6;border-radius:7px;display:flex;align-items:center;gap:6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="4" y1="10" x2="14" y2="10" />
+                <line x1="4" y1="14" x2="17" y2="14" />
+              </svg>
+              Tiebreaker — Digunakan jika skor utama sama
+            </div>
+            <div id="tiebreakerEditorList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- PANEL INTERVIEW MODAL -->
+  <div class="modal-overlay hidden" id="panelModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>📋 Panel Interview — <span id="panelVacName"></span></h3>
+        <button class="modal-close" onclick="closePanelModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:#6b7280;font-size:13px;margin-bottom:14px;">Centang kandidat yang akan diproses panel interview:
+        </p>
+        <div id="panelCandidateList"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closePanelModal()">Cancel</button>
+        <button class="btn-save" onclick="savePanelInterview()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+          </svg>
+          Save Panel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
