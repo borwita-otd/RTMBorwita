@@ -1385,6 +1385,24 @@ function filterTalentSearch() {
     return true;
   });
 
+  // Sort _tsResults by a default "Quality Score" so that Rank 1-5 are actually top talents
+  // Penalize bad psikotest, SP, and unpassed P2K so they drop to the bottom.
+  _tsResults.sort((a, b) => {
+    const getScore = (k) => {
+      let s = Number(k.ap12m) || 0;
+      if (k.rating === 'R1') s += 30;
+      else if (k.rating === 'R2') s += 20;
+      else if (k.rating === 'R3') s += 10;
+      
+      const psi = String(k.psiCur).toLowerCase().trim();
+      if (psi.includes('tidak disarankan')) s -= 200;
+      if (String(k.p2k).toLowerCase().trim() === 'belum lulus') s -= 200;
+      if (String(k.sp).toLowerCase().trim() === 'yes') s -= 200;
+      return s;
+    };
+    return getScore(b) - getScore(a);
+  });
+
   // Reset state
   _tsResults.forEach((k, idx) => { k._tsChecked = false; k._tsOriginalIndex = idx; });
   _tsSortState = { col: null, dir: 0 };
