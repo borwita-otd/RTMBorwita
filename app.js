@@ -781,9 +781,9 @@ function renderRecommendationTable() {
   } else {
     noRes.classList.add('hidden');
     let html = '';
-    filtered.forEach(({ k, originalRank }) => {
-      // Gunakan originalRank untuk semua logika rank — BUKAN index loop filtered
-      const i = originalRank;
+    filtered.forEach(({ k, originalRank }, loopIndex) => {
+      // Gunakan loopIndex agar nomor baris (Rank) selalu 1, 2, 3, dst (tidak teracak saat disortir)
+      const i = loopIndex;
       let matchBadge = '';
 
       // Determine badges from actual data stored during scoring
@@ -1386,7 +1386,7 @@ function filterTalentSearch() {
   });
 
   // Reset state
-  _tsResults.forEach(k => { k._tsChecked = false; });
+  _tsResults.forEach((k, idx) => { k._tsChecked = false; k._tsOriginalIndex = idx; });
   _tsSortState = { col: null, dir: 0 };
   document.getElementById('tsResult').classList.remove('hidden');
   document.getElementById('tsSearch').value = '';
@@ -1468,11 +1468,16 @@ function renderTSTable() {
     const isChecked = k._tsChecked ? 'checked' : '';
     const ap12mVal = Number(k.ap12m).toFixed(2);
 
-    html += `<tr>
+    const isTop5 = i < 5;
+    const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : i === 3 ? 'rank-4' : i === 4 ? 'rank-5' : '';
+    const crownMap = { 0: '🥇', 1: '🥈', 2: '🥉', 3: '4️⃣', 4: '5️⃣' };
+    const rankLabel = isTop5 ? `<span title="Rank #${i + 1}" style="margin-left:3px;font-size:10px;">${crownMap[i] || ''}</span>` : '';
+
+    html += `<tr class="${isTop5 ? 'rec-top-row ' + rankClass : ''}">
       <td style="text-align:center"><input type="checkbox" class="ts-check" data-nik="${k.nik}" ${isChecked} onchange="toggleTSCheck('${k.nik}',this.checked)"></td>
-      <td><span class="row-num">${i + 1}</span></td>
+      <td><span class="row-num">${i + 1}</span>${rankLabel}</td>
       <td style="font-weight:600;font-size:12px;">${k.nik}</td>
-      <td style="font-weight:500">${k.name}</td>
+      <td style="font-weight:${isTop5 ? '700' : '500'}">${k.name}</td>
       <td style="text-align:center">${k.age || '-'}</td>
       <td>${empBadge}</td>
       <td style="font-size:12px;">${k.position}</td>
