@@ -348,7 +348,7 @@
                   <tr>
                     <th><input type="checkbox" id="recCheckAll" onchange="toggleAllRecChecks(this.checked)"
                         title="Select All" style="cursor:pointer;width:14px;height:14px;"></th>
-                    <th>No</th>
+                    <th data-sort="originalRank" onclick="sortRecColumn('originalRank')" style="cursor:pointer;" title="Sort by Recommendation Score">Rank <span class="sort-arrow"></span></th>
                     <th data-sort="nik" onclick="sortRecColumn('nik')">NIK <span class="sort-arrow"></span></th>
                     <th data-sort="name" onclick="sortRecColumn('name')">Nama <span class="sort-arrow"></span></th>
                     <th data-sort="age" onclick="sortRecColumn('age')">Usia <span class="sort-arrow"></span></th>
@@ -496,7 +496,7 @@
                 <thead>
                   <tr>
                     <th><input type="checkbox" onchange="toggleAllTSChecks(this.checked)" style="cursor:pointer;width:14px;height:14px;"></th>
-                    <th>No</th>
+                    <th data-sort="_tsOriginalIndex" onclick="sortTSColumn('_tsOriginalIndex')" style="cursor:pointer;" title="Sort by Original Order">Rank <span class="sort-arrow"></span></th>
                     <th data-sort="nik" onclick="sortTSColumn('nik')">NIK <span class="sort-arrow"></span></th>
                     <th data-sort="name" onclick="sortTSColumn('name')">Nama <span class="sort-arrow"></span></th>
                     <th data-sort="age" onclick="sortTSColumn('age')">Usia <span class="sort-arrow"></span></th>
