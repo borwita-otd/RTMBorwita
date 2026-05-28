@@ -8,15 +8,10 @@ function showPage(id) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   document.querySelector(`.nav-item[data-page="${id}"]`).classList.add('active');
-  
   if (id === 'dashboard') renderDashboard();
   if (id === 'recommendation') populateVacancyDropdown();
+  if (id === 'talentsearch') initTSFilters();
   if (id === 'masterfilter') renderPriorityEditor();
-  
-  if (id === 'talentsearch') {
-    initTalentSearchFilters();
-    renderTalentSearch();
-  }
 }
 
 // --- NAVIGATE FROM DASHBOARD TO RECOMMENDATION ---
@@ -142,10 +137,11 @@ function renderDashboard() {
 
   let total = statsData.length, open = 0, fulfilled = 0, hold = 0, cancel = 0;
   statsData.forEach(d => {
-    if (d.status === 'Open') open++;
-    if (d.status === 'Closed') fulfilled++;
-    if (d.status === 'Hold') hold++;
-    if (d.status === 'Cancel') cancel++;
+    const s = String(d.status).trim().toLowerCase();
+    if (s === 'open') open++;
+    else if (s === 'closed') fulfilled++;
+    else if (s === 'hold') hold++;
+    else if (s === 'cancel') cancel++;
   });
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statOpen').textContent = open;
@@ -739,6 +735,7 @@ function generateRecommendation() {
 
   window._currentVac = vac; // Store for badge rendering
   currentEligibleCandidates = eligible;
+  _recSortState = { col: null, dir: 0 }; // Reset sort when generating new recommendation
   document.getElementById('recSearch').value = ''; // Reset search
   renderRecommendationTable();
 }
@@ -759,6 +756,20 @@ function renderRecommendationTable() {
       .filter(({ k }) => [k.nik, k.name, k.position, k.branch, k.grade].join(' ').toLowerCase().includes(q));
   } else {
     filtered = currentEligibleCandidates.map((k, originalRank) => ({ k, originalRank }));
+  }
+
+  // Apply column sort if active
+  if (_recSortState.col) {
+    filtered = [...filtered].sort((a, b) => {
+      let va = a.k[_recSortState.col] ?? '';
+      let vb = b.k[_recSortState.col] ?? '';
+      if (typeof va === 'number' || typeof vb === 'number') {
+        va = Number(va) || 0; vb = Number(vb) || 0;
+        return _recSortState.dir === 1 ? va - vb : vb - va;
+      }
+      va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
+      return _recSortState.dir === 1 ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
   }
 
   resDiv.classList.remove('hidden');
@@ -1294,132 +1305,284 @@ function toggleTiebreaker(id, enabled) {
 // ==========================================================
 // --- TALENT SEARCH ---
 // ==========================================================
+let _tsResults = [];
+let _tsSortState = { col: null, dir: 0 };
+let _recSortState = { col: null, dir: 0 };
+let _msSelected = { grade: [], department: [], region: [], principal: [] };
+let _tsFiltersInitialized = false;
 
-function initTalentSearchFilters() {
-  if (HAV_DB.length === 0) return; // Pastikan data HAV sudah termuat
-
-  // Fungsi pembantu untuk mengisi dropdown
-  const populateDropdown = (id, field) => {
-    const select = document.getElementById(id);
-    // Jika opsi sudah lebih dari 1, berarti sudah terisi (tidak perlu diulang)
-    if (!select || select.options.length > 1) return; 
-    
-    // getUniqueHAVValues sudah ada sebelumnya di app.js milikmu
-    const values = getUniqueHAVValues(field); 
-    values.forEach(v => {
-      const opt = document.createElement('option');
-      opt.value = v;
-      opt.textContent = v;
-      select.appendChild(opt);
-    });
-  };
-
-  populateDropdown('tsFilterDept', 'department');
-  populateDropdown('tsFilterRegion', 'regional');
-  populateDropdown('tsFilterGrade', 'grade');
-  populateDropdown('tsFilterPrinciple', 'principal');
+function initTSFilters() {
+  if (_tsFiltersInitialized && HAV_DB.length > 0) return;
+  if (HAV_DB.length === 0) {
+    showToast('⏳ Menunggu data HAV...');
+    const wi = setInterval(() => {
+      if (HAV_DB.length > 0) { clearInterval(wi); _populateMSFilters(); }
+    }, 500);
+    return;
+  }
+  _populateMSFilters();
 }
 
-function renderTalentSearch() {
-  if (HAV_DB.length === 0) return;
+function _populateMSFilters() {
+  const fieldMap = { grade: 'grade', department: 'department', region: 'regional', principal: 'principal' };
+  Object.entries(fieldMap).forEach(([key, havField]) => {
+    const vals = getUniqueHAVValues(havField);
+    const container = document.getElementById('msOpts_' + key);
+    if (!container) return;
+    container.innerHTML = vals.map(v =>
+      `<label class="ms-opt-item"><input type="checkbox" value="${v}" onchange="onMSChange('${key}')"> ${v}</label>`
+    ).join('');
+  });
+  _tsFiltersInitialized = true;
+}
 
-  const dept = (document.getElementById('tsFilterDept')?.value || '').toLowerCase();
-  const region = (document.getElementById('tsFilterRegion')?.value || '').toLowerCase();
-  const grade = document.getElementById('tsFilterGrade')?.value || '';
-  const principle = (document.getElementById('tsFilterPrinciple')?.value || '').toLowerCase();
-  const q = (document.getElementById('tsSearch')?.value || '').toLowerCase();
+function toggleMS(id) {
+  const dd = document.getElementById('msDD_' + id);
+  if (!dd) return;
+  const isHidden = dd.classList.contains('hidden');
+  // Close all dropdowns first
+  document.querySelectorAll('.ms-dd').forEach(d => d.classList.add('hidden'));
+  if (isHidden) dd.classList.remove('hidden');
+}
 
-  // 1. Proses Filter
-  const filtered = HAV_DB.filter(k => {
-    if (dept && String(k.department || '').toLowerCase() !== dept) return false;
-    if (region && String(k.regional || '').toLowerCase() !== region) return false;
-    if (grade && k.grade !== grade) return false;
-    if (principle && String(k.principal || '').toLowerCase() !== principle) return false;
-    
-    if (q) {
-      const searchStr = [k.nik, k.name, k.position, k.branch, k.grade].join(' ').toLowerCase();
-      if (!searchStr.includes(q)) return false;
-    }
+// Close multi-select dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.ms-wrap')) {
+    document.querySelectorAll('.ms-dd').forEach(d => d.classList.add('hidden'));
+  }
+});
+
+function onMSChange(key) {
+  const container = document.getElementById('msOpts_' + key);
+  const checked = Array.from(container.querySelectorAll('input:checked')).map(cb => cb.value);
+  _msSelected[key] = checked;
+  const txt = document.getElementById('msTxt_' + key);
+  if (checked.length === 0) {
+    txt.innerHTML = 'Semua';
+  } else {
+    txt.innerHTML = checked.length + ' dipilih <span class="ms-count">' + checked.length + '</span>';
+  }
+}
+
+function filterMSOpts(key, q) {
+  const container = document.getElementById('msOpts_' + key);
+  const items = container.querySelectorAll('.ms-opt-item');
+  const ql = q.toLowerCase();
+  items.forEach(item => {
+    item.style.display = item.textContent.toLowerCase().includes(ql) ? '' : 'none';
+  });
+}
+
+function filterTalentSearch() {
+  const { grade, department, region, principal } = _msSelected;
+
+  // If no filters selected, show all
+  _tsResults = HAV_DB.filter(k => {
+    if (grade.length > 0 && !grade.includes(k.grade)) return false;
+    if (department.length > 0 && !department.includes(k.department)) return false;
+    if (region.length > 0 && !region.includes(k.regional)) return false;
+    if (principal.length > 0 && !principal.includes(k.principal)) return false;
     return true;
   });
 
-  // 2. Render UI
+  // Reset state
+  _tsResults.forEach(k => { k._tsChecked = false; });
+  _tsSortState = { col: null, dir: 0 };
+  document.getElementById('tsResult').classList.remove('hidden');
+  document.getElementById('tsSearch').value = '';
+  renderTSTable();
+  showToast('✅ ' + _tsResults.length + ' kandidat ditemukan');
+}
+
+function resetTSFilters() {
+  _msSelected = { grade: [], department: [], region: [], principal: [] };
+  document.querySelectorAll('.ms-opts input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+  ['grade', 'department', 'region', 'principal'].forEach(key => {
+    const txt = document.getElementById('msTxt_' + key);
+    if (txt) txt.innerHTML = 'Semua';
+  });
+  document.getElementById('tsResult').classList.add('hidden');
+  _tsResults = [];
+  showToast('🔄 Filter direset');
+}
+
+function renderTSTable() {
+  const q = (document.getElementById('tsSearch')?.value || '').toLowerCase();
   const body = document.getElementById('tsBody');
   const noRes = document.getElementById('tsNoResult');
-  document.getElementById('tsResultCount').textContent = filtered.length + ' candidate(s) found';
+  const countEl = document.getElementById('tsCount');
+
+  let filtered = _tsResults;
+  if (q) {
+    filtered = _tsResults.filter(k =>
+      [k.nik, k.name, k.position, k.branch, k.grade, k.department, k.principal].join(' ').toLowerCase().includes(q)
+    );
+  }
+
+  // Apply sort
+  if (_tsSortState.col) {
+    filtered = [...filtered].sort((a, b) => {
+      let va = a[_tsSortState.col] ?? '';
+      let vb = b[_tsSortState.col] ?? '';
+      if (typeof va === 'number' || typeof vb === 'number') {
+        va = Number(va) || 0; vb = Number(vb) || 0;
+        return _tsSortState.dir === 1 ? va - vb : vb - va;
+      }
+      va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
+      return _tsSortState.dir === 1 ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  }
+
+  countEl.textContent = filtered.length + ' candidate(s) found';
 
   if (filtered.length === 0) {
     body.innerHTML = '';
     noRes.classList.remove('hidden');
-  } else {
-    noRes.classList.add('hidden');
-    let html = '';
-    filtered.forEach((k, i) => {
-      
-      // Format Link WhatsApp
-      let phoneLink = '-';
-      if (k.phone) {
-        let raw = String(k.phone).replace(/[^\d]/g, '');
-        if (raw.startsWith('0')) raw = '62' + raw.substring(1);
-        else if (raw.startsWith('8')) raw = '62' + raw;
-        if (raw.length >= 10) phoneLink = `<a href="https://wa.me/${raw}" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:12px;">📱 ${raw}</a>`;
-      }
-      
-      // Format Status Karyawan
-      let empBadge = k.employeeStatus || '-';
-      const esLow = String(k.employeeStatus).toLowerCase();
-      if (esLow.includes('permanent') || esLow.includes('tetap')) empBadge = '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Permanent</span>';
-      else if (esLow.includes('acting')) empBadge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Acting</span>';
-      else if (esLow.includes('contract') || esLow.includes('kontrak')) empBadge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Contract</span>';
-
-      // Format Kesediaan Promosi
-      const keinginanRaw = String(k.keinginanPromosi || '').trim();
-      let keinginanCell = '<span style="color:#94a3b8;font-size:11px;font-style:italic">-</span>';
-      if (keinginanRaw) {
-        const kLow = keinginanRaw.toLowerCase();
-        let kBg, kColor;
-        if (kLow === 'tidak bersedia' || kLow.startsWith('tidak')) { kBg = '#fee2e2'; kColor = '#991b1b'; }
-        else if (kLow === 'bersedia' || (!kLow.startsWith('tidak') && kLow.includes('bersedia'))) { kBg = '#dcfce7'; kColor = '#166534'; }
-        else { kBg = '#f3f4f6'; kColor = '#374151'; }
-        keinginanCell = `<span style="display:inline-block;background:${kBg};color:${kColor};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${keinginanRaw}</span>`;
-      }
-
-      // Baris Tabel
-      html += `<tr>
-        <td><span class="row-num">${i + 1}</span></td>
-        <td style="font-weight:600;font-size:12px;">${k.nik}</td>
-        <td style="font-weight:500">${k.name}</td>
-        <td style="text-align:center">${k.age || '-'}</td>
-        <td style="font-size:12px;">${k.education || '-'}</td>
-        <td>${empBadge}</td>
-        <td style="font-size:12px;">${k.position}</td>
-        <td><span style="background:#eef2ff;color:var(--primary-dark);padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">${k.grade}</span></td>
-        <td style="font-size:12px;">${k.principal || '-'}</td>
-        <td style="font-size:12px;">${k.regional || '-'}</td>
-        <td style="font-weight:600;font-size:12px;">${k.branch}</td>
-        <td style="font-size:12px;">${k.department || '-'}</td>
-        <td>${phoneLink}</td>
-        <td><span style="font-weight:700;${k.rating === 'R1' ? 'color:#065f46;' : k.rating === 'R2' ? 'color:#1e40af;' : 'color:#6b7280;'}">${k.rating}</span></td>
-        <td style="text-align:center;font-weight:600;">${Number(k.ap12m).toFixed(2)}</td>
-        <td><span style="font-size:12px;font-weight:600;">${k.psiCur || '-'}</span></td>
-        <td style="font-weight:700;color:var(--primary-dark)">${k.havProyeksi || '-'}</td>
-        <td><span style="color:${k.p2k === 'Lulus' ? 'var(--success)' : 'var(--danger)'};font-weight:700">${k.p2k}</span></td>
-        <td style="font-size:12px;text-align:center;">${k.lengthOfService || '-'}</td>
-        <td>${keinginanCell}</td>
-        <td><span style="font-size:11px;color:#374151;">${k.kesediaanPenempatan || '-'}</span></td>
-      </tr>`;
-    });
-    body.innerHTML = html;
+    return;
   }
+
+  noRes.classList.add('hidden');
+  const { grade, department, region, principal } = _msSelected;
+
+  let html = '';
+  filtered.forEach((k, i) => {
+    // Match priority badges based on selected filters
+    let matchBadge = '';
+    if (region.length > 0 && region.includes(k.regional))
+      matchBadge += '<span class="match-badge match-region" style="margin-right:3px">📍 Region</span>';
+    if (principal.length > 0 && principal.includes(k.principal))
+      matchBadge += '<span class="match-badge" style="background:#f0fdf4;color:#166534;margin-right:3px">🏢 Principal</span>';
+    if (department.length > 0 && department.includes(k.department))
+      matchBadge += '<span class="match-badge" style="background:#ede9fe;color:#5b21b6;margin-right:3px">🏷️ Dept</span>';
+    if (grade.length > 0 && grade.includes(k.grade))
+      matchBadge += '<span class="match-badge" style="background:#eef2ff;color:#3730a3;margin-right:3px">🎓 Grade</span>';
+    if (!matchBadge) matchBadge = '<span class="match-badge match-other">—</span>';
+
+    // Employee status badge
+    let empBadge = k.employeeStatus || '-';
+    const esLow = String(k.employeeStatus).toLowerCase();
+    if (esLow.includes('permanent') || esLow.includes('tetap')) empBadge = '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Permanent</span>';
+    else if (esLow.includes('acting')) empBadge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Acting</span>';
+    else if (esLow.includes('contract') || esLow.includes('kontrak')) empBadge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Contract</span>';
+
+    const isChecked = k._tsChecked ? 'checked' : '';
+    const ap12mVal = Number(k.ap12m).toFixed(2);
+
+    html += `<tr>
+      <td style="text-align:center"><input type="checkbox" class="ts-check" data-nik="${k.nik}" ${isChecked} onchange="toggleTSCheck('${k.nik}',this.checked)"></td>
+      <td><span class="row-num">${i + 1}</span></td>
+      <td style="font-weight:600;font-size:12px;">${k.nik}</td>
+      <td style="font-weight:500">${k.name}</td>
+      <td style="text-align:center">${k.age || '-'}</td>
+      <td>${empBadge}</td>
+      <td style="font-size:12px;">${k.position}</td>
+      <td><span style="background:#eef2ff;color:var(--primary-dark);padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">${k.grade}</span></td>
+      <td style="font-size:12px;">${k.department || '-'}</td>
+      <td style="font-size:12px;">${k.principal || '-'}</td>
+      <td style="font-size:12px;">${k.regional || '-'}</td>
+      <td style="font-weight:600;font-size:12px;">${k.branch}</td>
+      <td><span style="font-weight:700;${k.rating === 'R1' ? 'color:#065f46;' : k.rating === 'R2' ? 'color:#1e40af;' : 'color:#6b7280;'}">${k.rating}</span></td>
+      <td style="text-align:center;font-weight:600;">${ap12mVal}</td>
+      <td style="font-size:12px;">${k.psiCur || '-'}</td>
+      <td>${matchBadge}</td>
+    </tr>`;
+  });
+  body.innerHTML = html;
 }
 
-function resetTalentSearchFilters() {
-  document.getElementById('tsFilterDept').value = '';
-  document.getElementById('tsFilterRegion').value = '';
-  document.getElementById('tsFilterGrade').value = '';
-  document.getElementById('tsFilterPrinciple').value = '';
-  document.getElementById('tsSearch').value = '';
-  renderTalentSearch();
+function toggleTSCheck(nik, checked) {
+  const k = _tsResults.find(k => String(k.nik) === String(nik));
+  if (k) k._tsChecked = checked;
+}
+
+function toggleAllTSChecks(checked) {
+  _tsResults.forEach(k => { k._tsChecked = checked; });
+  document.querySelectorAll('.ts-check').forEach(cb => { cb.checked = checked; });
+}
+
+function downloadTSExcel() {
+  const q = (document.getElementById('tsSearch')?.value || '').toLowerCase();
+  let pool = _tsResults;
+  if (q) {
+    pool = _tsResults.filter(k =>
+      [k.nik, k.name, k.position, k.branch, k.grade, k.department].join(' ').toLowerCase().includes(q)
+    );
+  }
+  const checked = pool.filter(k => k._tsChecked);
+  const data = checked.length > 0 ? checked : pool;
+
+  if (data.length === 0) return showToast('Tidak ada data untuk didownload.');
+
+  const headers = ['No', 'NIK', 'Nama', 'Usia', 'Employee Status', 'Position', 'Job Grade', 'Department', 'Principal', 'Region', 'Branch', 'PA Level', 'AP12M', 'Psikotest', 'HAV (Proyeksi)', 'P2K'];
+  let csv = headers.join(',') + '\n';
+  data.forEach((k, i) => {
+    const row = [
+      i + 1, k.nik,
+      '"' + (k.name || '').replace(/"/g, '""') + '"',
+      k.age || '',
+      '"' + (k.employeeStatus || '') + '"',
+      '"' + (k.position || '') + '"',
+      k.grade,
+      '"' + (k.department || '') + '"',
+      '"' + (k.principal || '') + '"',
+      '"' + (k.regional || '') + '"',
+      '"' + (k.branch || '') + '"',
+      k.rating,
+      Number(k.ap12m).toFixed(2),
+      '"' + (k.psiCur || '') + '"',
+      '"' + (k.havProyeksi || '') + '"',
+      k.p2k
+    ];
+    csv += row.join(',') + '\n';
+  });
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'TalentSearch_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ ' + (checked.length > 0 ? checked.length + ' selected' : 'All ' + data.length) + ' candidates downloaded!');
+}
+
+// --- SORT COLUMNS (shared for RTM and Talent Search) ---
+function sortRecColumn(col) {
+  if (_recSortState.col === col) {
+    _recSortState.dir = _recSortState.dir === 1 ? 2 : _recSortState.dir === 2 ? 0 : 1;
+    if (_recSortState.dir === 0) _recSortState.col = null;
+  } else {
+    _recSortState = { col, dir: 1 };
+  }
+  renderRecommendationTable();
+  _updateSortArrows('recBody');
+}
+
+function sortTSColumn(col) {
+  if (_tsSortState.col === col) {
+    _tsSortState.dir = _tsSortState.dir === 1 ? 2 : _tsSortState.dir === 2 ? 0 : 1;
+    if (_tsSortState.dir === 0) _tsSortState.col = null;
+  } else {
+    _tsSortState = { col, dir: 1 };
+  }
+  renderTSTable();
+  _updateSortArrows('tsBody');
+}
+
+function _updateSortArrows(bodyId) {
+  const state = bodyId === 'recBody' ? _recSortState : _tsSortState;
+  const table = document.getElementById(bodyId)?.closest('table');
+  if (!table) return;
+  table.querySelectorAll('th[data-sort]').forEach(th => {
+    const arrow = th.querySelector('.sort-arrow');
+    if (!arrow) return;
+    const col = th.getAttribute('data-sort');
+    if (col === state.col) {
+      arrow.textContent = state.dir === 1 ? ' ▲' : state.dir === 2 ? ' ▼' : '';
+    } else {
+      arrow.textContent = '';
+    }
+  });
 }
 
 // --- INIT ---
