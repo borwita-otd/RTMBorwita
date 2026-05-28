@@ -45,8 +45,8 @@
       </div>
       <div class="nav-item" data-page="talentsearch" onclick="showPage('talentsearch')">
         <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
         Talent Search
       </div>
@@ -56,13 +56,6 @@
         </svg>
         Master Filter
       </div>
-      <div class="nav-label" style="margin-top:10px;">Resources</div>
-      <a class="nav-item" href="https://docs.google.com/spreadsheets/d/1h5EsS4g5Iw5mhnbe-cHmIwZRwk3SWEu_rJvoXs9foec/edit?usp=sharing" target="_blank" style="text-decoration:none;">
-        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-        </svg>
-        HAV Matrix Database
-      </a>
     </nav>
 
     <div class="sidebar-footer">
@@ -97,10 +90,14 @@
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
           <span style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;">Filter Tanggal:</span>
-          <input type="date" id="dashDateStart" onchange="renderDashboard()" class="input-field" style="width:130px;padding:6px 10px;font-size:12px;">
+          <input type="date" id="dashDateStart" onchange="renderDashboard()" class="input-field"
+            style="width:130px;padding:6px 10px;font-size:12px;">
           <span style="color:#9ca3af;font-size:12px;">s/d</span>
-          <input type="date" id="dashDateEnd" onchange="renderDashboard()" class="input-field" style="width:130px;padding:6px 10px;font-size:12px;">
-          <button onclick="document.getElementById('dashDateStart').value='';document.getElementById('dashDateEnd').value='';renderDashboard()" class="btn-reset" style="padding:6px 12px;font-size:12px;">Reset</button>
+          <input type="date" id="dashDateEnd" onchange="renderDashboard()" class="input-field"
+            style="width:130px;padding:6px 10px;font-size:12px;">
+          <button
+            onclick="document.getElementById('dashDateStart').value='';document.getElementById('dashDateEnd').value='';renderDashboard()"
+            class="btn-reset" style="padding:6px 12px;font-size:12px;">Reset</button>
         </div>
       </div>
 
@@ -133,25 +130,13 @@
         <div class="stat-card sc-fulfilled">
           <div class="stat-icon-wrap">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-              <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-            </svg>
-          </div>
-          <div class="stat-row">
-            <div class="stat-label">Internal</div>
-            <div class="stat-value" id="statFulfilled">0</div>
-          </div>
-        </div>
-        <div class="stat-card" style="border-color:#d1fae5;">
-          <div class="stat-icon-wrap" style="background:#d1fae5;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#065f46" stroke-width="2">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           </div>
           <div class="stat-row">
-            <div class="stat-label" style="color:#065f46;">Closed</div>
-            <div class="stat-value" id="statClosed" style="color:#065f46;">0</div>
+            <div class="stat-label">Fulfilled</div>
+            <div class="stat-value" id="statFulfilled">0</div>
           </div>
         </div>
         <div class="stat-card sc-hold">
@@ -184,11 +169,10 @@
       <!-- TOOLBAR -->
       <div class="toolbar">
         <select id="dashStatusFilter" onchange="renderDashboard()" class="select-field">
-          <option value="ALL">All Status</option>
-          <option value="OPEN" selected>Open</option>
-          <option value="HOLD">On Hold</option>
-          <option value="CLOSED_ONLY">Closed</option>
-          <option value="CANCEL">Cancelled</option>
+          <option value="ALL">Semua Status</option>
+          <option value="OPEN" selected>Only OPEN</option>
+          <option value="HOLD">Only HOLD</option>
+          <option value="CLOSED">Closed / Cancel</option>
         </select>
 
         <div class="search-wrap">
@@ -213,6 +197,10 @@
           </div>
           <div class="card-actions">
             <span class="vacancy-click-hint">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 3h6v6M10 14L21 3" />
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              </svg>
               Klik posisi untuk generate rekomendasi
             </span>
             <button class="btn btn-success btn-sm" onclick="downloadDashboardExcel()">
@@ -231,7 +219,7 @@
               <thead>
                 <tr>
                   <th>No</th>
-                  <th>Requested By</th>
+                  <th>Requestor</th>
                   <th>Vacant Position</th>
                   <th>Level</th>
                   <th>Region</th>
@@ -245,7 +233,7 @@
                   <th>Manpower Needs</th>
                   <th>Panel Interview</th>
                   <th>Successor Name</th>
-                  <th>Projected Branch</th>
+                  <th>Successor Branch</th>
                   <th>Effective Date</th>
                   <th>Panel Month</th>
                   <th>Source</th>
@@ -361,26 +349,26 @@
                     <th><input type="checkbox" id="recCheckAll" onchange="toggleAllRecChecks(this.checked)"
                         title="Select All" style="cursor:pointer;width:14px;height:14px;"></th>
                     <th>No</th>
-                    <th>NIK</th>
-                    <th>Name</th>
-                    <th>Age</th>
-                    <th>Education</th>
-                    <th>Emp. Status</th>
-                    <th>Position</th>
-                    <th>Job Grade</th>
-                    <th>Principal</th>
-                    <th>Region</th>
-                    <th>Branch</th>
-                    <th>Department</th>
+                    <th data-sort="nik" onclick="sortRecColumn('nik')">NIK <span class="sort-arrow"></span></th>
+                    <th data-sort="name" onclick="sortRecColumn('name')">Nama <span class="sort-arrow"></span></th>
+                    <th data-sort="age" onclick="sortRecColumn('age')">Usia <span class="sort-arrow"></span></th>
+                    <th data-sort="education" onclick="sortRecColumn('education')">Education <span class="sort-arrow"></span></th>
+                    <th data-sort="employeeStatus" onclick="sortRecColumn('employeeStatus')">Emp. Status <span class="sort-arrow"></span></th>
+                    <th data-sort="position" onclick="sortRecColumn('position')">Position <span class="sort-arrow"></span></th>
+                    <th data-sort="grade" onclick="sortRecColumn('grade')">Job Grade <span class="sort-arrow"></span></th>
+                    <th data-sort="principal" onclick="sortRecColumn('principal')">Principal <span class="sort-arrow"></span></th>
+                    <th data-sort="regional" onclick="sortRecColumn('regional')">Region <span class="sort-arrow"></span></th>
+                    <th data-sort="branch" onclick="sortRecColumn('branch')">Branch <span class="sort-arrow"></span></th>
+                    <th data-sort="department" onclick="sortRecColumn('department')">Department <span class="sort-arrow"></span></th>
                     <th>WhatsApp</th>
-                    <th>PA Level</th>
-                    <th>AP12M</th>
-                    <th>Psychotest</th>
-                    <th>HAV (Projected)</th>
-                    <th>P2K</th>
-                    <th>Length of Service</th>
-                    <th>Promotion Willingness</th>
-                    <th>Placement Readiness</th>
+                    <th data-sort="rating" onclick="sortRecColumn('rating')">PA Level <span class="sort-arrow"></span></th>
+                    <th data-sort="ap12m" onclick="sortRecColumn('ap12m')">AP12M <span class="sort-arrow"></span></th>
+                    <th data-sort="psiCur" onclick="sortRecColumn('psiCur')">Psikotest <span class="sort-arrow"></span></th>
+                    <th data-sort="havProyeksi" onclick="sortRecColumn('havProyeksi')">HAV (Proyeksi) <span class="sort-arrow"></span></th>
+                    <th data-sort="p2k" onclick="sortRecColumn('p2k')">P2K <span class="sort-arrow"></span></th>
+                    <th data-sort="lengthOfService" onclick="sortRecColumn('lengthOfService')">Length of Service <span class="sort-arrow"></span></th>
+                    <th data-sort="keinginanPromosi" onclick="sortRecColumn('keinginanPromosi')">Keinginan Promosi <span class="sort-arrow"></span></th>
+                    <th data-sort="kesediaanPenempatan" onclick="sortRecColumn('kesediaanPenempatan')">Kesediaan Penempatan <span class="sort-arrow"></span></th>
                     <th>Match Priority</th>
                   </tr>
                 </thead>
@@ -399,108 +387,142 @@
       </div>
     </div>
 
-    <!-- ══ TALENT SEARCH ═════════════════════════════════ -->
+    <!-- ══ TALENT SEARCH ══════════════════════════════════ -->
     <div class="page" id="page-talentsearch">
       <div class="page-header">
         <div class="page-header-text">
           <h2>Talent Search</h2>
-          <p>Search candidates freely — not tied to any vacancy</p>
+          <p>Cari dan filter seluruh database karyawan berdasarkan kriteria</p>
         </div>
       </div>
 
-      <!-- FILTER CARD -->
       <div class="card">
         <div class="card-title">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          Filter Candidates
+          Filter Candidate
         </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-          <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Department</label>
-            <select id="tsFilterDept" onchange="renderTalentSearch()" class="select-field" style="width:200px;">
-              <option value="">All Departments</option>
-            </select>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+          <div class="ms-wrap">
+            <label class="ms-lbl">Grade</label>
+            <div class="ms-trigger" onclick="toggleMS('grade')">
+              <span id="msTxt_grade">Semua</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="ms-dd hidden" id="msDD_grade">
+              <input type="text" class="ms-search" placeholder="Cari grade..." oninput="filterMSOpts('grade',this.value)">
+              <div class="ms-opts" id="msOpts_grade"></div>
+            </div>
           </div>
-          <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Region</label>
-            <select id="tsFilterRegion" onchange="renderTalentSearch()" class="select-field" style="width:180px;">
-              <option value="">All Regions</option>
-            </select>
+          <div class="ms-wrap">
+            <label class="ms-lbl">Department</label>
+            <div class="ms-trigger" onclick="toggleMS('department')">
+              <span id="msTxt_department">Semua</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="ms-dd hidden" id="msDD_department">
+              <input type="text" class="ms-search" placeholder="Cari department..." oninput="filterMSOpts('department',this.value)">
+              <div class="ms-opts" id="msOpts_department"></div>
+            </div>
           </div>
-          <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Level (Job Grade)</label>
-            <select id="tsFilterGrade" onchange="renderTalentSearch()" class="select-field" style="width:160px;">
-              <option value="">All Grades</option>
-            </select>
+          <div class="ms-wrap">
+            <label class="ms-lbl">Region</label>
+            <div class="ms-trigger" onclick="toggleMS('region')">
+              <span id="msTxt_region">Semua</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="ms-dd hidden" id="msDD_region">
+              <input type="text" class="ms-search" placeholder="Cari region..." oninput="filterMSOpts('region',this.value)">
+              <div class="ms-opts" id="msOpts_region"></div>
+            </div>
           </div>
-          <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Principle</label>
-            <select id="tsFilterPrinciple" onchange="renderTalentSearch()" class="select-field" style="width:180px;">
-              <option value="">All Principles</option>
-            </select>
-          </div>
-          <button onclick="resetTalentSearchFilters()" class="btn-reset" style="padding:8px 16px;">Reset Filters</button>
-        </div>
-      </div>
-
-      <!-- RESULTS -->
-      <div class="card" style="padding:0;overflow:hidden;">
-        <div class="card-header-row" style="padding:16px 20px 0;">
-          <div class="card-title" style="margin-bottom:0;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-            <span id="tsResultCount">0 candidate(s) found</span>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <div class="search-wrap" style="width:260px;">
-              <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input type="text" id="tsSearch" class="input-field" style="padding-left:34px;width:100%;" placeholder="Search name, NIK, branch..." oninput="renderTalentSearch()">
+          <div class="ms-wrap">
+            <label class="ms-lbl">Principal</label>
+            <div class="ms-trigger" onclick="toggleMS('principal')">
+              <span id="msTxt_principal">Semua</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="ms-dd hidden" id="msDD_principal">
+              <input type="text" class="ms-search" placeholder="Cari principal..." oninput="filterMSOpts('principal',this.value)">
+              <div class="ms-opts" id="msOpts_principal"></div>
             </div>
           </div>
         </div>
-        <div style="padding:14px 20px 20px;">
-          <div class="table-wrap" style="margin-top:10px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>NIK</th>
-                  <th>Name</th>
-                  <th>Age</th>
-                  <th>Education</th>
-                  <th>Emp. Status</th>
-                  <th>Position</th>
-                  <th>Job Grade</th>
-                  <th>Principal</th>
-                  <th>Region</th>
-                  <th>Branch</th>
-                  <th>Department</th>
-                  <th>WhatsApp</th>
-                  <th>PA Level</th>
-                  <th>AP12M</th>
-                  <th>Psychotest</th>
-                  <th>HAV (Projected)</th>
-                  <th>P2K</th>
-                  <th>Length of Service</th>
-                  <th>Promotion Willingness</th>
-                  <th>Placement Readiness</th>
-                </tr>
-              </thead>
-              <tbody id="tsBody"></tbody>
-            </table>
-          </div>
-          <p id="tsNoResult" class="hidden empty-msg">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        <div style="display:flex;gap:10px;">
+          <button class="btn" onclick="filterTalentSearch()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            No candidates match the selected filters.
-          </p>
+            Search
+          </button>
+          <button class="btn" onclick="resetTSFilters()" style="background:#f3f4f6;color:#374151;">🔄 Reset</button>
+        </div>
+      </div>
+
+      <div id="tsResult" class="hidden">
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div class="card-header-row" style="padding:18px 20px 0;">
+            <div class="card-title" style="margin-bottom:0;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              Hasil Pencarian
+            </div>
+            <span id="tsCount" style="font-size:12px;color:var(--muted);font-weight:600;margin-left:4px;"></span>
+            <div class="card-actions">
+              <div class="search-wrap" style="max-width:260px;">
+                <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" id="tsSearch" class="input-field" style="padding-left:32px;width:100%;" placeholder="Cari nama, NIK..." oninput="renderTSTable()">
+              </div>
+              <button class="btn btn-success btn-sm" onclick="downloadTSExcel()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download Excel
+              </button>
+            </div>
+          </div>
+          <div style="padding:0 20px 20px;">
+            <div class="table-wrap" style="margin-top:14px;">
+              <table id="tsTable">
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" onchange="toggleAllTSChecks(this.checked)" style="cursor:pointer;width:14px;height:14px;"></th>
+                    <th>No</th>
+                    <th data-sort="nik" onclick="sortTSColumn('nik')">NIK <span class="sort-arrow"></span></th>
+                    <th data-sort="name" onclick="sortTSColumn('name')">Nama <span class="sort-arrow"></span></th>
+                    <th data-sort="age" onclick="sortTSColumn('age')">Usia <span class="sort-arrow"></span></th>
+                    <th data-sort="employeeStatus" onclick="sortTSColumn('employeeStatus')">Emp. Status <span class="sort-arrow"></span></th>
+                    <th data-sort="position" onclick="sortTSColumn('position')">Position <span class="sort-arrow"></span></th>
+                    <th data-sort="grade" onclick="sortTSColumn('grade')">Grade <span class="sort-arrow"></span></th>
+                    <th data-sort="department" onclick="sortTSColumn('department')">Department <span class="sort-arrow"></span></th>
+                    <th data-sort="principal" onclick="sortTSColumn('principal')">Principal <span class="sort-arrow"></span></th>
+                    <th data-sort="regional" onclick="sortTSColumn('regional')">Region <span class="sort-arrow"></span></th>
+                    <th data-sort="branch" onclick="sortTSColumn('branch')">Branch <span class="sort-arrow"></span></th>
+                    <th data-sort="rating" onclick="sortTSColumn('rating')">PA Level <span class="sort-arrow"></span></th>
+                    <th data-sort="ap12m" onclick="sortTSColumn('ap12m')">AP12M <span class="sort-arrow"></span></th>
+                    <th data-sort="psiCur" onclick="sortTSColumn('psiCur')">Psikotest <span class="sort-arrow"></span></th>
+                    <th>Match Priority</th>
+                  </tr>
+                </thead>
+                <tbody id="tsBody"></tbody>
+              </table>
+            </div>
+            <p id="tsNoResult" class="hidden empty-msg">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Gunakan filter di atas untuk mencari kandidat.
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -539,9 +561,10 @@
             </select>
           </div>
           <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Department</label>
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Department
+              <span style="font-weight:400;color:#9ca3af;">(opsional)</span></label>
             <select id="mfDeptSelect" onchange="renderMasterFilter()" class="select-field" style="width:240px;">
-              <option value="">Pilih Department</option>
+              <option value="">All Department</option>
             </select>
           </div>
         </div>
