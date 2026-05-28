@@ -1,1591 +1,727 @@
-// ===== TALENT MANAGEMENT SYSTEM - APP.JS =====
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Talent Management System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
 
+<body>
 
-// --- NAVIGATION ---
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
-  document.querySelector(`.nav-item[data-page="${id}"]`).classList.add('active');
-  if (id === 'dashboard') renderDashboard();
-  if (id === 'recommendation') populateVacancyDropdown();
-  if (id === 'talentsearch') initTSFilters();
-  if (id === 'masterfilter') renderPriorityEditor();
-}
+  <div class="toast" id="toast"></div>
 
-// --- NAVIGATE FROM DASHBOARD TO RECOMMENDATION ---
-function goToRecommendation(vacIdx) {
-  // Switch page
-  showPage('recommendation');
-  // Select the vacancy and auto-generate
-  selectedVacancyIdx = vacIdx;
-  const d = vacancyData[vacIdx];
-  if (!d) return;
-  document.getElementById('recVacancyInput').value = `${d.posisi} (${d.level}) — ${d.branch}, ${d.region}`;
-  // Auto-generate (wait for HAV data if not loaded yet)
-  if (HAV_DB.length === 0) {
-    showToast('⏳ Menunggu data HAV_Matrix...');
-    const waitInterval = setInterval(() => {
-      if (HAV_DB.length > 0) {
-        clearInterval(waitInterval);
-        generateRecommendation();
-        showToast(`✅ Membuka rekomendasi: ${d.posisi}`);
-      }
-    }, 500);
-  } else {
-    generateRecommendation();
-    showToast(`✅ Membuka rekomendasi: ${d.posisi}`);
-  }
-}
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-wrap">
+        <div class="logo-circle">TM</div>
+        <div>
+          <h1>Talent Mapping</h1>
+          <p>HR Management System</p>
+        </div>
+      </div>
+    </div>
 
-// --- GAS CONFIG ---
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyW8Q5yxdITkc03_LnwIbkXcX-lvNZ6004h-z2BS3SVy0QKLorjilm5gdBdDt4eGJuK/exec';
+    <nav class="sidebar-nav">
+      <div class="nav-label">Main Menu</div>
+      <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+        Dashboard Vacancy
+      </div>
+      <div class="nav-item" data-page="recommendation" onclick="showPage('recommendation')">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+        Recommendation RTM
+      </div>
+      <div class="nav-item" data-page="talentsearch" onclick="showPage('talentsearch')">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        Talent Search
+      </div>
+      <div class="nav-item" data-page="masterfilter" onclick="showPage('masterfilter')">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+        </svg>
+        Master Filter
+      </div>
+    </nav>
 
-// --- DATA STORES ---
-let vacancyData = [];
-let HAV_DB = [];
-let currentEligibleCandidates = [];
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">AD</div>
+        <div>
+          <div class="user-name">Admin</div>
+          <div class="user-role">HR Management</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="location.reload()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          style="margin-right:5px;vertical-align:middle;">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+        Logout
+      </button>
+    </div>
+  </aside>
 
-// --- FETCH INITIAL DATA ---
-async function fetchInitialData() {
-  document.getElementById('dashBody').innerHTML = '<tr><td colspan="18" style="text-align:center;padding:40px;">⏳ Loading data from Google Sheets...</td></tr>';
+  <!-- MAIN CONTENT -->
+  <main class="main" id="mainContent">
 
-  try {
-    // Fetch BOTH in parallel for faster loading
-    const [resDash, resHAV] = await Promise.all([
-      fetch(`${GAS_URL}?action=getDashboard`),
-      fetch(`${GAS_URL}?action=getHAV`)
-    ]);
+    <!-- ══ DASHBOARD VACANCY ══════════════════════════════ -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div class="page-header-text">
+          <h2>Dashboard Vacancy</h2>
+          <p>Overview vacancy requests — klik <strong>Posisi Vacant</strong> untuk langsung generate rekomendasi</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <span style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;">Filter Tanggal:</span>
+          <input type="date" id="dashDateStart" onchange="renderDashboard()" class="input-field"
+            style="width:130px;padding:6px 10px;font-size:12px;">
+          <span style="color:#9ca3af;font-size:12px;">s/d</span>
+          <input type="date" id="dashDateEnd" onchange="renderDashboard()" class="input-field"
+            style="width:130px;padding:6px 10px;font-size:12px;">
+          <button
+            onclick="document.getElementById('dashDateStart').value='';document.getElementById('dashDateEnd').value='';renderDashboard()"
+            class="btn-reset" style="padding:6px 12px;font-size:12px;">Reset</button>
+        </div>
+      </div>
 
-    const dataDash = await resDash.json();
-    if (dataDash.success) {
-      vacancyData = dataDash.data;
-      renderDashboard();
-      populateVacancyDropdown();
-    } else {
-      console.error("Dashboard error:", dataDash.error);
-      showToast("❌ Error loading Dashboard data: " + dataDash.error);
-    }
-
-    const dataHAV = await resHAV.json();
-    if (dataHAV.success) {
-      HAV_DB = dataHAV.data;
-    } else {
-      console.error("HAV error:", dataHAV.error);
-      showToast("❌ Error loading HAV data: " + dataHAV.error);
-    }
-
-  } catch (error) {
-    console.error("Fetch error:", error);
-    document.getElementById('dashBody').innerHTML = '<tr><td colspan="18" style="text-align:center;padding:40px;color:red;">❌ Error loading data. See console.</td></tr>';
-    showToast("❌ Network error connecting to Google Sheets");
-  }
-}
-
-
-
-// Grade hierarchy: G1=A&T, G2=Coordinator, G3=Supervisor, G4=Manager, G5=Head, G6=GM, G7=Direktur
-// For vacancy G3(Supervisor), candidates should be G1 and G2
-function getTargetGrades(vacancyLevel) {
-  const num = parseInt(vacancyLevel.replace(/\D/g, '')) || 0;
-  const grades = [];
-  // Candidates 1-2 levels below
-  if (num - 1 >= 1) grades.push('G' + (num - 1));
-  if (num - 2 >= 1) grades.push('G' + (num - 2));
-  return grades;
-}
-
-// Helper to parse panel string
-function parsePanelStr(str) {
-  const parts = str.split('---').map(s => s.trim());
-  return { name: parts[0] || str, date: parts[1] || '', note: parts[2] || '' };
-}
-
-// Helper: format date string "YYYY-MM-DD" → "Mei 2026"
-function formatBulanFromDate(dateStr) {
-  if (!dateStr) return '';
-  const BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return BULAN[d.getMonth()] + ' ' + d.getFullYear();
-}
-
-// --- RENDER DASHBOARD ---
-function renderDashboard() {
-  const q = (document.getElementById('dashSearch')?.value || '').toLowerCase();
-  const statusFilter = document.getElementById('dashStatusFilter')?.value || 'ALL';
-  const dateStart = document.getElementById('dashDateStart')?.value;
-  const dateEnd = document.getElementById('dashDateEnd')?.value;
-  const body = document.getElementById('dashBody');
-  if (!body) return;
-
-  const statusOrder = { 'Open': 1, 'Hold': 2, 'Closed': 3, 'Cancel': 4 };
-  vacancyData.sort((a, b) => (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99));
-
-  // Date filter for stats
-  let statsData = vacancyData;
-  if (dateStart || dateEnd) {
-    statsData = vacancyData.filter(d => {
-      if (!d.timestamp) return true;
-      const ts = new Date(d.timestamp).toISOString().slice(0, 10);
-      if (dateStart && ts < dateStart) return false;
-      if (dateEnd && ts > dateEnd) return false;
-      return true;
-    });
-  }
-
-  let total = statsData.length, open = 0, fulfilled = 0, hold = 0, cancel = 0;
-  statsData.forEach(d => {
-    const s = String(d.status).trim().toLowerCase();
-    if (s === 'open') open++;
-    else if (s === 'closed') fulfilled++;
-    else if (s === 'hold') hold++;
-    else if (s === 'cancel') cancel++;
-  });
-  document.getElementById('statTotal').textContent = total;
-  document.getElementById('statOpen').textContent = open;
-  document.getElementById('statFulfilled').textContent = fulfilled;
-  document.getElementById('statHold').textContent = hold;
-  document.getElementById('statCancel').textContent = cancel;
-
-  let html = '';
-  vacancyData.forEach((d, i) => {
-    // Date filter — apply to table rows too
-    if (dateStart || dateEnd) {
-      if (!d.timestamp) { /* keep rows without timestamp */ }
-      else {
-        const ts = new Date(d.timestamp).toISOString().slice(0, 10);
-        if (dateStart && ts < dateStart) return;
-        if (dateEnd && ts > dateEnd) return;
-      }
-    }
-
-    if (statusFilter === 'OPEN' && d.status !== 'Open') return;
-    if (statusFilter === 'HOLD' && d.status !== 'Hold') return;
-    if (statusFilter === 'CLOSED' && (d.status !== 'Closed' && d.status !== 'Cancel')) return;
-
-    const searchStr = [d.pemohon, d.posisi, d.region, d.branch, ...(d.talentList || []), ...(d.talentRec || [])].join(' ').toLowerCase();
-    if (q && !searchStr.includes(q)) return;
-
-    // Talent Rec (from form)
-    const tRecHtml = (d.talentRec || []).length
-      ? '<ul class="td-list">' + d.talentRec.map(t => '<li>' + t + '</li>').join('') + '</ul>'
-      : '<span style="color:#94a3b8;font-size:11px;font-style:italic">-</span>';
-
-    // Talent List (from RTM checked candidates)
-    const tListHtml = (d.talentList || []).length
-      ? '<ol style="margin:0;padding-left:16px;font-size:12px;">' + d.talentList.map(t => '<li>' + t + '</li>').join('') + '</ol>'
-      : '<span style="color:#94a3b8;font-size:11px;font-style:italic">-</span>';
-
-    // Panel Interview - clickable button
-    const panelCount = (d.panelApproved || []).length;
-    const panelBtnText = panelCount > 0 ? panelCount + ' kandidat' : 'Kelola';
-
-    // Successor - dropdown from panel approved
-    const approvedCandidates = d.panelApproved || [];
-    let sucHtml = '<select class="source-select" onchange="setSuccessor(' + d.rowIndex + ',this.value)" style="min-width:120px;"><option value="">- Pilih -</option>';
-    approvedCandidates.forEach(item => {
-      const p = parsePanelStr(item);
-      sucHtml += '<option value="' + p.name + '" ' + (d.successor === p.name ? 'selected' : '') + '>' + p.name + '</option>';
-    });
-    sucHtml += '</select>';
-    if (!approvedCandidates.length) sucHtml = '<span style="color:#94a3b8;font-size:11px;font-style:italic">Panel dulu</span>';
-
-    html += `<tr>
-      <td><span class="row-num">${i + 1}</span></td>
-      <td style="font-weight:600">${d.pemohon}</td>
-      <td><span class="posisi-link" onclick="goToRecommendation(${vacancyData.indexOf(d)})" title="Klik untuk generate rekomendasi">${d.posisi}</span></td>
-      <td>${d.level}</td>
-      <td>${d.region}</td>
-      <td>${d.branch}</td>
-      <td>${d.workLoc}</td>
-      <td>${d.principle}</td>
-      <td>${d.reason}</td>
-      <td style="font-size:12px;">${d.department || '<span style=\"color:#94a3b8;font-size:11px;font-style:italic\">-</span>'}</td>
-      <td>${tRecHtml}</td>
-      <td>${tListHtml}</td>
-      <td style="text-align:center;font-weight:700">${d.manpower}</td>
-      <td><button class="btn-edit" onclick="openPanelModal(${d.rowIndex})" style="white-space:nowrap;">📋 ${panelBtnText}</button></td>
-      <td>${sucHtml}</td>
-      <td><select class="source-select" onchange="setSuccessorBranch(${d.rowIndex},this.value)" style="min-width:130px;">
-        <option value="">- Pilih Branch -</option>
-        ${['Pusat','Surabaya','Kediri','Madiun','Makassar','Latubo','Bandung','Bali','Malang','Jember','Yogyakarta','Semarang','Cirebon','Tegal','Madura','Palopo','Pare-Pare','Mamuju','Lombok','Manado','Puma','Solo','Palu','Jakarta','Ternate','Purwokerto','Sukabumi','Tasikmalaya','Subang','Pati','Kendari','Kupang','Gorontalo','Poso','Bone','Karawang','Bau-Bau','Sumbawa','Bengkulu','Bima','Maumere','Lampung','Cikarang','Klaten','Ruteng','Palembang'].map(b => `<option value="${b}" ${d.successorBranch === b ? 'selected' : ''}>${b}</option>`).join('')}
-      </select></td>
-      <td><input type="date" class="input-field" value="${d.effectiveDate || ''}" onchange="setEffectiveDate(${d.rowIndex},this.value)" style="width:130px;padding:5px 8px;font-size:12px;"></td>
-      <td>${d.bulanPanel || '<span style="color:#94a3b8;font-size:11px;font-style:italic">-</span>'}</td>
-      <td><select class="source-select" onchange="changeSource(${d.rowIndex},this.value)">
-        <option value="" ${!d.source ? 'selected' : ''}>-</option>
-        <option value="Internal" ${d.source === 'Internal' ? 'selected' : ''}>Internal</option>
-        <option value="Eksternal" ${d.source === 'Eksternal' ? 'selected' : ''}>Eksternal</option>
-        <option value="Mutasi" ${d.source === 'Mutasi' ? 'selected' : ''}>Mutasi</option>
-      </select></td>
-      <td><select class="status-select ssel-${d.status}" onchange="changeStatus(${d.rowIndex},this.value);this.className='status-select ssel-'+this.value">
-        <option value="Open" ${d.status === 'Open' ? 'selected' : ''}>Open</option>
-        <option value="Closed" ${d.status === 'Closed' ? 'selected' : ''}>Closed</option>
-        <option value="Cancel" ${d.status === 'Cancel' ? 'selected' : ''}>Cancel</option>
-        <option value="Hold" ${d.status === 'Hold' ? 'selected' : ''}>Hold</option>
-      </select></td>
-    </tr>`;
-  });
-  body.innerHTML = html;
-}
-
-// Helper: find vacancy by rowIndex
-function findVacancyByRowIndex(rowIndex) {
-  return vacancyData.find(d => d.rowIndex === rowIndex);
-}
-
-async function changeStatus(rowIndex, val) {
-  const d = findVacancyByRowIndex(rowIndex);
-  if (!d) return;
-  d.status = val;
-  renderDashboard();
-
-  // Save to Google Sheet
-  showToast("⏳ Saving status...");
-  try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'updateDashboard',
-        rowIndex: d.rowIndex,
-        status: val
-      })
-    });
-    showToast("✅ Status updated");
-  } catch (e) {
-    console.error(e);
-    showToast("❌ Failed to update status");
-  }
-}
-
-async function changeSource(rowIndex, val) {
-  const d = findVacancyByRowIndex(rowIndex);
-  if (!d) return;
-  d.source = val;
-
-  showToast("⏳ Saving source...");
-  try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'updateDashboard',
-        rowIndex: d.rowIndex,
-        source: val
-      })
-    });
-    showToast("✅ Source updated");
-  } catch (e) {
-    console.error(e);
-    showToast("❌ Failed to update source");
-  }
-}
-
-// --- PANEL INTERVIEW MODAL ---
-let panelRowIndex = null;
-
-
-function openPanelModal(rowIndex) {
-  const d = findVacancyByRowIndex(rowIndex);
-  if (!d) return;
-  panelRowIndex = rowIndex;
-  document.getElementById('panelVacName').textContent = d.posisi;
-  // bulanPanel sekarang auto-derived dari tanggal panel — tidak perlu set input
-  // Create lookup for existing panel data
-  const approvedMap = {};
-  (d.panelApproved || []).forEach(item => {
-    const p = parsePanelStr(item);
-    approvedMap[p.name] = p;
-  });
-
-  const candidates = d.talentList || [];
-  const listDiv = document.getElementById('panelCandidateList');
-
-  if (candidates.length === 0) {
-    listDiv.innerHTML = '<p style="color:#94a3b8;font-style:italic;">Belum ada kandidat di Talent List. Pilih kandidat di Recommendation RTM terlebih dahulu.</p>';
-  } else {
-    listDiv.innerHTML = candidates.map((name, idx) => {
-      const pData = approvedMap[name];
-      const isChecked = pData ? 'checked' : '';
-      const displayDetails = pData ? 'flex' : 'none';
-      const dateVal = pData ? pData.date : '';
-      const noteVal = pData ? pData.note : '';
-
-      return `
-      <div style="background:#f9fafb;border-radius:8px;margin-bottom:8px;border:1px solid #e5e7eb;overflow:hidden;">
-        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;">
-          <input type="checkbox" class="panel-check" data-idx="${idx}" value="${name}" ${isChecked} onchange="togglePanelDetails(${idx}, this.checked)">
-          <span style="font-weight:600;font-size:14px;">${idx + 1}. ${name}</span>
-        </label>
-        <div id="panel-details-${idx}" style="display:${displayDetails};gap:10px;padding:0 14px 14px 44px;flex-wrap:wrap;">
-          <div style="flex:1;min-width:140px;">
-            <label style="display:block;font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">Tanggal Panel</label>
-            <input type="date" id="panel-date-${idx}" value="${dateVal}" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;">
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card sc-total">
+          <div class="stat-icon-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
           </div>
-          <div style="flex:2;min-width:200px;">
-            <label style="display:block;font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">Catatan (Opsional)</label>
-            <input type="text" id="panel-note-${idx}" value="${noteVal}" placeholder="Hasil panel..." style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;">
+          <div class="stat-row">
+            <div class="stat-label">Total Vacancy</div>
+            <div class="stat-value" id="statTotal">0</div>
           </div>
         </div>
-      </div>`;
-    }).join('');
-  }
-  document.getElementById('panelModal').classList.remove('hidden');
-}
-
-function togglePanelDetails(idx, checked) {
-  const el = document.getElementById('panel-details-' + idx);
-  if (el) el.style.display = checked ? 'flex' : 'none';
-}
-
-function closePanelModal() {
-  document.getElementById('panelModal').classList.add('hidden');
-}
-
-async function savePanelInterview() {
-  const d = findVacancyByRowIndex(panelRowIndex);
-  if (!d) return;
-
-  const approved = [];
-  document.querySelectorAll('.panel-check:checked').forEach(cb => {
-    const name = cb.value;
-    const idx = cb.getAttribute('data-idx');
-    const dateVal = document.getElementById('panel-date-' + idx).value;
-    const noteVal = document.getElementById('panel-note-' + idx).value.trim();
-    // Format: Name --- Date --- Note
-    approved.push(`${name} --- ${dateVal} --- ${noteVal}`);
-  });
-
-  d.panelApproved = approved;
-
-  // Auto-derive bulanPanel dari tanggal panel kandidat pertama yang dicentang
-  // (tidak perlu input manual lagi)
-  if (approved.length > 0) {
-    const firstDate = parsePanelStr(approved[0]).date;
-    d.bulanPanel = formatBulanFromDate(firstDate);
-  } else {
-    d.bulanPanel = '';
-  }
-
-  // If successor was set but is no longer in approved list, clear it
-  if (d.successor) {
-    const isStillApproved = approved.some(item => parsePanelStr(item).name === d.successor);
-    if (!isStillApproved) d.successor = '';
-  }
-
-  closePanelModal();
-  renderDashboard();
-  showToast('\u23f3 Saving panel data...');
-
-  try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'updateDashboard',
-        rowIndex: d.rowIndex,
-        panelInterview: approved.join('|'),
-        bulanPanel: d.bulanPanel,
-        successorName: d.successor || ''
-      })
-    });
-    showToast('\u2705 Panel interview updated!');
-  } catch (e) {
-    console.error(e);
-    showToast('\u274c Failed to save');
-  }
-}
-
-// --- SAVE CHECKED CANDIDATES TO VACANCY ---
-function saveCheckedToVacancy() {
-  if (selectedVacancyIdx === null) return showToast('Pilih vacancy terlebih dahulu.');
-
-  const checked = currentEligibleCandidates.filter(k => k._checked);
-  if (checked.length === 0) return showToast('Centang kandidat yang ingin disimpan ke Talent List.');
-
-  const vac = vacancyData[selectedVacancyIdx];
-  if (!vac) return;
-
-  vac.talentList = checked.map(k => k.name);
-  renderDashboard();
-  showToast('\u2705 ' + checked.length + ' kandidat disimpan ke Talent List vacancy "' + vac.posisi + '"');
-
-  // Save to Google Sheet
-  fetch(GAS_URL, {
-    method: 'POST',
-    body: JSON.stringify({
-      action: 'updateDashboard',
-      rowIndex: vac.rowIndex,
-      talentList: vac.talentList.join(', '),
-      panelInterview: (vac.panelApproved || []).join(', '),
-      successorName: vac.successor || ''
-    })
-  }).catch(e => console.error(e));
-}
-
-// --- SET SUCCESSOR ---
-async function setSuccessor(rowIndex, name) {
-  const d = findVacancyByRowIndex(rowIndex);
-  if (!d) return;
-  d.successor = name;
-
-  showToast('\u23f3 Saving successor...');
-  try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'updateDashboard',
-        rowIndex: d.rowIndex,
-        successorName: name
-      })
-    });
-    showToast('\u2705 Successor: ' + (name || '(cleared)'));
-  } catch (e) {
-    showToast('\u274c Failed to save');
-  }
-}
-
-async function setSuccessorBranch(rowIndex, branch) {
-  const d = findVacancyByRowIndex(rowIndex);
-  if (!d) return;
-  d.successorBranch = branch;
-  showToast('\u23f3 Saving successor branch...');
-  try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'updateDashboard',
-        rowIndex: d.rowIndex,
-        successorBranch: branch
-      })
-    });
-    showToast('\u2705 Successor Branch: ' + (branch || '(cleared)'));
-  } catch (e) {
-    showToast('\u274c Failed to save');
-  }
-}
-
-async function setEffectiveDate(rowIndex, date) {
-  const d = findVacancyByRowIndex(rowIndex);
-  if (!d) return;
-  d.effectiveDate = date;
-  showToast('\u23f3 Saving effective date...');
-  try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'updateDashboard',
-        rowIndex: d.rowIndex,
-        effectiveDate: date
-      })
-    });
-    showToast('\u2705 Effective Date: ' + (date || '(cleared)'));
-  } catch (e) {
-    showToast('\u274c Failed to save');
-  }
-}
-
-// --- RECOMMENDATION RTM ---
-let selectedVacancyIdx = null;
-let vacancyOptions = [];
-
-function populateVacancyDropdown() {
-  vacancyOptions = [];
-  vacancyData.forEach((d, i) => {
-    if (String(d.status).toUpperCase() === 'OPEN') {
-      vacancyOptions.push({ idx: i, label: `${d.posisi} (${d.level}) — ${d.branch}, ${d.region}` });
-    }
-  });
-  renderVacancyDropdownItems(vacancyOptions);
-}
-
-function renderVacancyDropdownItems(items) {
-  const list = document.getElementById('vacancyDropdownList');
-  if (!items.length) {
-    list.innerHTML = '<div style="padding:12px 18px;color:#94a3b8;font-size:13px;">Tidak ada vacancy OPEN yang cocok</div>';
-    return;
-  }
-  list.innerHTML = items.map(opt =>
-    `<div class="dropdown-item" onmousedown="selectVacancyOption(${opt.idx})" style="padding:12px 18px;cursor:pointer;font-size:14px;font-family:'Plus Jakarta Sans';border-bottom:1px solid #f3f4f6;transition:.15s;white-space:normal;word-break:break-word;">${opt.label}</div>`
-  ).join('');
-}
-
-function toggleVacancyDropdown(show) {
-  const list = document.getElementById('vacancyDropdownList');
-  list.style.display = show ? 'block' : 'none';
-  if (show) filterVacancyDropdown();
-}
-
-function filterVacancyDropdown() {
-  const q = document.getElementById('recVacancyInput').value.toLowerCase();
-  const filtered = vacancyOptions.filter(opt => opt.label.toLowerCase().includes(q));
-  renderVacancyDropdownItems(filtered);
-  document.getElementById('vacancyDropdownList').style.display = 'block';
-}
-
-function selectVacancyOption(idx) {
-  selectedVacancyIdx = idx;
-  const d = vacancyData[idx];
-  document.getElementById('recVacancyInput').value = `${d.posisi} (${d.level}) — ${d.branch}, ${d.region}`;
-  toggleVacancyDropdown(false);
-}
-
-// Close dropdown when clicking outside
-document.addEventListener('click', (e) => {
-  const dd = document.getElementById('vacancyDropdown');
-  if (dd && !dd.contains(e.target)) toggleVacancyDropdown(false);
-});
-
-function generateRecommendation() {
-  if (selectedVacancyIdx === null) return showToast('Pilih vacancy yang valid dari daftar terlebih dahulu.');
-  if (HAV_DB.length === 0) return showToast('⏳ Data HAV_Matrix belum selesai dimuat. Tunggu sebentar lalu coba lagi.');
-
-  const vac = vacancyData[selectedVacancyIdx];
-  const vacLevel = parseInt(vac.level.replace(/\D/g, '')) || 3;
-  const vacLevelStr = 'G' + vacLevel;
-
-  // Department vacancy langsung dari kolom R Dashboard_Vacancy (sync dari Form Response kolom AH)
-  const vacDeptRaw = String(vac.department || '').trim();
-
-  // === KEYWORD → DEPARTMENT MAPPING ===
-  // Jika nama posisi vacancy mengandung keyword tertentu,
-  // kandidat yang ditampilkan difilter ke department yang sesuai.
-  // Tambah/edit mapping di sini sesuai kebutuhan.
-  const DEPT_KEYWORD_MAP = [
-    { keywords: ['logistik', 'logistic'], departments: ['Logistic Delivery', 'Logistic Warehouse'] },
-    // Tambah mapping lain di sini, contoh:
-    // { keywords: ['sales', 'penjualan'], departments: ['Sales', 'Sales Support'] },
-    // { keywords: ['finance', 'keuangan'], departments: ['Finance', 'Accounting'] },
-  ];
-
-  // Cek apakah nama posisi vacancy cocok dengan salah satu keyword mapping
-  const vacPosLower = (vac.posisi || '').toLowerCase();
-  let mappedDepts = []; // array department yang diperbolehkan, kosong = tidak ada mapping aktif
-  for (const rule of DEPT_KEYWORD_MAP) {
-    if (rule.keywords.some(kw => vacPosLower.includes(kw))) {
-      mappedDepts = rule.departments.map(d => d.toLowerCase());
-      break;
-    }
-  }
-
-  // Jika tidak ada keyword match, fallback ke exact match dari vac.department (kolom R)
-  // Kalau vac.department juga kosong → tidak ada filter department sama sekali
-  const useExactDeptMatch = mappedDepts.length === 0 && vacDeptRaw !== '';
-
-  // Get filter config: try level+dept specific → level-only → defaults
-  const cfg = getMasterFilterConfig(vacLevelStr, vacDeptRaw) || getDefaultFilterConfig(vacLevel);
-  const targetGrades = cfg.candidateGrades || getTargetGrades(vac.level);
-  const maxAge = cfg.maxAge || (vacLevel >= 4 ? 50 : 45);
-
-  // Show vacancy info
-  const infoBox = document.getElementById('recVacancyInfo');
-  infoBox.classList.remove('hidden');
-  const deptFilterLabel = mappedDepts.length > 0
-    ? `<em style="color:#7c3aed;font-weight:600">${DEPT_KEYWORD_MAP.find(r => r.keywords.some(kw => vacPosLower.includes(kw)))?.departments.join(', ')}</em> <span style="font-size:11px;color:#9ca3af">(dari keyword posisi)</span>`
-    : vacDeptRaw ? `<em>${vacDeptRaw}</em>` : '<em style="color:#9ca3af">—</em>';
-  infoBox.innerHTML = `
-    <p><strong>Posisi:</strong> ${vac.posisi} (${vac.level})</p>
-    <p><strong>Principle:</strong> ${vac.principle || '-'}</p>
-    <p><strong>Region:</strong> ${vac.region} | <strong>Branch:</strong> ${vac.branch}</p>
-    <p><strong>Department Filter:</strong> ${deptFilterLabel}</p>
-    <p><strong>Target Grade Kandidat:</strong> ${targetGrades.join(', ')} | <strong>Max Usia:</strong> ${maxAge} thn</p>
-  `;
-
-  // Extract talent names from BOTH talentRec (form) and talentList (RTM) for bypass logic
-  const talentNames = [];
-  [...(vac.talentRec || []), ...(vac.talentList || [])].forEach(line => {
-    line.split(/\d+\.|\n|,|;|\|/).forEach(part => {
-      const clean = part.trim().toUpperCase();
-      if (clean.length > 2) talentNames.push(clean);
-    });
-  });
-
-  // Helper: fuzzy match candidate name against talent list
-  const isCandidateInTalentList = (kName) => {
-    return talentNames.some(tName => {
-      if (kName.toUpperCase() === tName) return true;
-      const kWords = kName.toUpperCase().split(' ').filter(w => w.length > 2);
-      const tWords = tName.split(' ').filter(w => w.length > 2);
-      let matchCount = 0;
-      tWords.forEach(tw => { if (kWords.includes(tw)) matchCount++; });
-      const requiredMatches = Math.min(2, Math.max(1, tWords.length));
-      return tWords.length > 0 && matchCount >= requiredMatches;
-    });
-  };
-
-  const vacPosName = vac.posisi.toLowerCase();
-
-  // Show filter info dynamically from master filter cfg
-  const filterDiv = document.getElementById('recFilterInfo');
-  const filterDetails = document.getElementById('recFilterDetails');
-  filterDiv.classList.remove('hidden');
-  filterDetails.innerHTML = `
-    <span class="filter-tag pass">Grade: ${targetGrades.join('/')} ✓</span>
-    <span class="filter-tag pass">Usia < ${maxAge} thn ✓</span>
-    ${(cfg.excludeRating || []).map(r => `<span class="filter-tag fail">Rating ${r} ✗</span>`).join('')}
-    ${(cfg.excludeAPM || []).map(a => `<span class="filter-tag fail">APM ${a} ✗</span>`).join('')}
-    ${(cfg.excludeSP || []).map(s => `<span class="filter-tag fail">SP ${s} ✗</span>`).join('')}
-    ${(cfg.excludeP2K || []).map(p => `<span class="filter-tag fail">P2K: ${p} ✗</span>`).join('')}
-    ${(cfg.excludePsikotest || []).map(p => `<span class="filter-tag fail">Psi: ${p} ✗</span>`).join('')}
-  `;
-
-  // ---- FILTER CANDIDATES ----
-  let eligible = HAV_DB.filter(k => {
-    // Usia SELALU dicek — tidak ada bypass termasuk Talent Rec/List
-    const candidateAge = Number(k.age);
-    if (candidateAge > 0 && candidateAge >= maxAge) return false;
-
-    // Talent Rec/List → bypass semua filter KECUALI usia
-    if (isCandidateInTalentList(k.name)) return true;
-
-    // Grade filter
-    if (!targetGrades.includes(k.grade)) return false;
-
-    // Department filter — 2 mode:
-    // 1. Keyword mapping aktif (mappedDepts tidak kosong): kandidat WAJIB dari salah satu dept yang dimapping
-    //    → department kosong/tidak dikenal = ikut dibuang
-    // 2. Exact match dari vac.department (useExactDeptMatch): harus sama persis
-    // 3. Tidak ada keduanya: tidak ada filter department
-    const candDept = String(k.department || '').trim().toLowerCase();
-    if (mappedDepts.length > 0) {
-      if (!mappedDepts.includes(candDept)) return false; // kosong pun dibuang
-    } else if (useExactDeptMatch) {
-      if (vacDeptRaw.toLowerCase() !== candDept) return false;
-    }
-
-    // APM Level (exclude list)
-    const apmStr = String(k.apmLevel).replace(/\s/g, '');
-    if ((cfg.excludeAPM || ['<70']).some(excl => apmStr === excl.replace(/\s/g, ''))) return false;
-
-    // Rating
-    if ((cfg.excludeRating || ['R3']).includes(k.rating)) return false;
-
-    // CEK SP
-    if ((cfg.excludeSP || ['Yes']).includes(k.sp)) return false;
-
-    // CEK P2K
-    if ((cfg.excludeP2K || ['Belum Lulus']).includes(k.p2k)) return false;
-
-    // Psikotest
-    if ((cfg.excludePsikotest || ['Tidak Disarankan']).includes(k.psiCur)) return false;
-
-    return true;
-  });
-
-  // ---- SCORE using Priority Config ----
-  const priorityCfg = loadPriorityConfig();
-  const N = priorityCfg.order.filter(id => priorityCfg.enabled[id] !== false).length;
-  let ptIdx = 0;
-
-  const savedTalentListNames = (vac.talentList || []).map(t => t.toUpperCase().trim());
-
-  eligible.forEach(k => {
-    k.score = 0;
-    k._isTalentRec = isCandidateInTalentList(k.name);
-    // Bersihkan status checked dari vacancy sebelumnya ATAU pre-check jika memang sudah ada di Talent List
-    k._checked = savedTalentListNames.some(t => k.name.toUpperCase().trim() === t);
-
-
-    // Assign exponential points per priority position (so priority 1 always beats all lower combined)
-    let enabledIdx = 0;
-    priorityCfg.order.forEach(id => {
-      if (priorityCfg.enabled[id] === false) return;
-      const pts = Math.pow(2, N - enabledIdx); // 2^N, 2^(N-1), ...
-      enabledIdx++;
-      let applies = false;
-      if (id === 'talentRec') applies = isCandidateInTalentList(k.name);
-      else if (id === 'starBelum') {
-        const isStar = String(k.star).trim() !== '' && String(k.star).trim() !== '-' && String(k.star).trim() !== '0';
-        applies = isStar && String(k.promosiStar).toLowerCase().trim() === 'belum promosi';
-      }
-      else if (id === 'starPromosi') {
-        const isStar = String(k.star).trim() !== '' && String(k.star).trim() !== '-' && String(k.star).trim() !== '0';
-        const ps = String(k.promosiStar).toLowerCase().trim();
-        applies = isStar && ps === 'promosi';
-      }
-      else if (id === 'principalMatch') applies = !!(vac.principle && k.principal && k.principal.toLowerCase().trim() === vac.principle.toLowerCase().trim());
-      else if (id === 'branchMatch') applies = k.branch === vac.branch;
-      else if (id === 'regionMatch') applies = k.regional === vac.region;
-      if (applies) k.score += pts;
-    });
-
-    // Tiebreaker weights
-    const apmStr = String(k.apmLevel).replace(/\s/g, '');
-    k.apmWeight = apmStr.includes('>90') ? 3 : apmStr.includes('70-90') ? 2 : 1;
-    const rt = String(k.rating).toUpperCase().trim();
-    k.ratingWeight = rt === 'R1' ? 3 : rt === 'R2' ? 2 : 1;
-    const es = String(k.employeeStatus).toLowerCase();
-    k.empWeight = (es.includes('permanent') || es.includes('tetap')) ? 3 : es.includes('acting') ? 2 : 1;
-    const psi = String(k.psiCur).toLowerCase();
-    k.psiWeight = (psi.includes('disarankan') && !psi.includes('tidak')) ? 3 : psi.includes('dipertimbangkan') ? 2 : 1;
-  });
-
-  // ---- SORT by score, then tiebreakers in configured order ----
-  const tbFieldMap = { rating: 'ratingWeight', empStatus: 'empWeight', ap12m: 'ap12m', psikotest: 'psiWeight', apmLevel: 'apmWeight' };
-  const activeTBs = priorityCfg.tiebreakerOrder.filter(id => priorityCfg.tiebreakerEnabled[id] !== false);
-
-  eligible.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    for (const tbId of activeTBs) {
-      const field = tbFieldMap[tbId];
-      if (field && b[field] !== a[field]) return b[field] - a[field];
-    }
-    return 0;
-  });
-
-  window._currentVac = vac; // Store for badge rendering
-  currentEligibleCandidates = eligible;
-  _recSortState = { col: null, dir: 0 }; // Reset sort when generating new recommendation
-  document.getElementById('recSearch').value = ''; // Reset search
-  renderRecommendationTable();
-}
-
-function renderRecommendationTable() {
-  const q = (document.getElementById('recSearch')?.value || '').toLowerCase();
-  const resDiv = document.getElementById('recResult');
-  const body = document.getElementById('recBody');
-  const noRes = document.getElementById('recNoResult');
-  const countEl = document.getElementById('recCount');
-
-  // Buat array with original rank index preserved — rank TIDAK berubah saat search
-  // originalRank = posisi asli di currentEligibleCandidates (0-based → tampil +1)
-  let filtered;
-  if (q) {
-    filtered = currentEligibleCandidates
-      .map((k, originalRank) => ({ k, originalRank }))
-      .filter(({ k }) => [k.nik, k.name, k.position, k.branch, k.grade].join(' ').toLowerCase().includes(q));
-  } else {
-    filtered = currentEligibleCandidates.map((k, originalRank) => ({ k, originalRank }));
-  }
-
-  // Apply column sort if active
-  if (_recSortState.col) {
-    filtered = [...filtered].sort((a, b) => {
-      let va = a.k[_recSortState.col] ?? '';
-      let vb = b.k[_recSortState.col] ?? '';
-      if (typeof va === 'number' || typeof vb === 'number') {
-        va = Number(va) || 0; vb = Number(vb) || 0;
-        return _recSortState.dir === 1 ? va - vb : vb - va;
-      }
-      va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
-      return _recSortState.dir === 1 ? va.localeCompare(vb) : vb.localeCompare(va);
-    });
-  }
-
-  resDiv.classList.remove('hidden');
-  countEl.textContent = filtered.length + ' candidate(s) found';
-
-  if (filtered.length === 0) {
-    body.innerHTML = '';
-    noRes.classList.remove('hidden');
-  } else {
-    noRes.classList.add('hidden');
-    let html = '';
-    filtered.forEach(({ k, originalRank }) => {
-      // Gunakan originalRank untuk semua logika rank — BUKAN index loop filtered
-      const i = originalRank;
-      let matchBadge = '';
-
-      // Determine badges from actual data stored during scoring
-      const isTalentRec = k._isTalentRec;
-      const starVal = String(k.star).trim();
-      const isStar = starVal !== '' && starVal !== '-' && starVal !== '0';
-      const promosiVal = String(k.promosiStar).toLowerCase().trim();
-      const isStarBelum = isStar && promosiVal === 'belum promosi';
-      const isStarPromosi = isStar && promosiVal === 'promosi';
-      const isPrincipalMatch = !!(window._currentVac?.principle && k.principal && k.principal.toLowerCase().trim() === window._currentVac.principle.toLowerCase().trim());
-      const isBranchMatch = k.branch === window._currentVac?.branch;
-      const isRegionMatch = k.regional === window._currentVac?.region;
-      const vacDeptBadge = String(window._currentVac?.department || '').trim().toLowerCase();
-      const isDeptMatch = !!(vacDeptBadge && String(k.department || '').trim().toLowerCase() === vacDeptBadge);
-
-      // Talent Rec badge
-      if (isTalentRec) matchBadge += '<span class="match-badge" style="background:#dbeafe;color:#1e40af;margin-right:4px;">🎯 Talent Rec</span>';
-
-      // STAR badges
-      if (isStarBelum) matchBadge += '<span class="match-badge match-branch" style="background:#fef08a;color:#854d0e;">🌟 STAR (Belum)</span>';
-      else if (isStarPromosi) matchBadge += '<span class="match-badge match-branch" style="background:#fef9c3;color:#a16207;">⭐ STAR (Promosi)</span>';
-
-      // Principal match badge
-      if (isPrincipalMatch) matchBadge += ' <span class="match-badge" style="background:#f0fdf4;color:#166534;margin-left:4px">🏢 Principal</span>';
-
-      // Department match badge (hanya tampil jika vacancy punya department)
-      if (vacDeptBadge && isDeptMatch) matchBadge += ' <span class="match-badge" style="background:#ede9fe;color:#5b21b6;margin-left:4px">🏷️ Dept Match</span>';
-
-      // Branch & Region badges
-      if (isBranchMatch) matchBadge += ' <span class="match-badge match-branch" style="margin-left:4px">📍 Branch</span>';
-      if (isRegionMatch && !isBranchMatch) matchBadge += ' <span class="match-badge match-region" style="margin-left:4px">🗺️ Region</span>';
-
-      // Fallback
-      if (matchBadge === '') matchBadge = '<span class="match-badge match-other">Eligible</span>';
-
-      const isTop5 = i < 5;
-      const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : i === 3 ? 'rank-4' : i === 4 ? 'rank-5' : '';
-      const ap12mFormatted = Number(k.ap12m).toFixed(2);
-
-      // Format phone to wa.me link
-      let phoneLink = '-';
-      if (k.phone) {
-        let raw = String(k.phone).replace(/[^\d]/g, '');
-        if (raw.startsWith('0')) raw = '62' + raw.substring(1);
-        else if (raw.startsWith('8')) raw = '62' + raw;
-        if (raw.length >= 10) {
-          phoneLink = `<a href="https://wa.me/${raw}" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600;font-size:12px;">📱 ${raw}</a>`;
-        }
-      }
-
-      // Format employee status badge
-      let empBadge = k.employeeStatus || '-';
-      const esLow = String(k.employeeStatus).toLowerCase();
-      if (esLow.includes('permanent') || esLow.includes('tetap')) empBadge = '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Permanent</span>';
-      else if (esLow.includes('acting')) empBadge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Acting</span>';
-      else if (esLow.includes('contract') || esLow.includes('kontrak')) empBadge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Contract</span>';
-
-      const isChecked = k._checked ? 'checked' : '';
-
-      // Top-5 rank crown emoji — hanya untuk rank asli 1-5
-      const crownMap = { 0: '🥇', 1: '🥈', 2: '🥉', 3: '4️⃣', 4: '5️⃣' };
-      const rankLabel = isTop5 ? `<span title="Rank #${i + 1}" style="margin-left:3px;font-size:10px;">${crownMap[i] || ''}</span>` : '';
-
-      // Keinginan Promosi: hijau jika "Bersedia", merah jika "Tidak Bersedia"
-      const keinginanRaw = String(k.keinginanPromosi || '').trim();
-      let keinginanCell = '<span style="color:#94a3b8;font-size:11px;font-style:italic">-</span>';
-      if (keinginanRaw) {
-        const kLow = keinginanRaw.toLowerCase();
-        let kBg, kColor;
-        if (kLow === 'tidak bersedia' || kLow.startsWith('tidak')) {
-          kBg = '#fee2e2'; kColor = '#991b1b';
-        } else if (kLow === 'bersedia' || (!kLow.startsWith('tidak') && kLow.includes('bersedia'))) {
-          kBg = '#dcfce7'; kColor = '#166534';
-        } else {
-          kBg = '#f3f4f6'; kColor = '#374151';
-        }
-        keinginanCell = `<span style="display:inline-block;background:${kBg};color:${kColor};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${keinginanRaw}</span>`;
-      }
-
-      // Kesediaan Penempatan: tampilkan apa adanya (teks bebas)
-      const kesediaanRaw = String(k.kesediaanPenempatan || '').trim();
-      const kesediaanCell = kesediaanRaw
-        ? `<span style="font-size:11px;color:#374151;">${kesediaanRaw}</span>`
-        : '<span style="color:#94a3b8;font-size:11px;font-style:italic">-</span>';
-
-      html += `<tr class="${isTop5 ? 'rec-top-row ' + rankClass : ''}">
-        <td style="text-align:center"><input type="checkbox" class="rec-check" data-nik="${k.nik}" ${isChecked} onchange="toggleRecCheckByNik('${k.nik}',this.checked)"></td>
-        <td><span class="row-num">${i + 1}</span>${rankLabel}</td>
-        <td style="font-weight:600;font-size:12px;">${k.nik}</td>
-        <td style="font-weight:${isTop5 ? '700' : '500'}">${k.name}</td>
-        <td style="text-align:center">${k.age || '-'}</td>
-        <td style="font-size:12px;">${k.education || '-'}</td>
-        <td>${empBadge}</td>
-        <td style="font-size:12px;">${k.position}</td>
-        <td><span style="background:#eef2ff;color:var(--primary-dark);padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">${k.grade}</span></td>
-        <td style="font-size:12px;">${k.principal || '-'}</td>
-        <td style="font-size:12px;">${k.regional || '-'}</td>
-        <td style="font-weight:600;font-size:12px;">${k.branch}</td>
-        <td style="font-size:12px;">${k.department || '-'}</td>
-        <td>${phoneLink}</td>
-        <td><span style="font-weight:700;${k.rating === 'R1' ? 'color:#065f46;' : k.rating === 'R2' ? 'color:#1e40af;' : 'color:#6b7280;'}">${k.rating}</span></td>
-        <td style="text-align:center;font-weight:600;">${ap12mFormatted}</td>
-        <td><span style="font-size:12px;font-weight:600;${String(k.psiCur || '').toLowerCase().includes('tidak disarankan') ? 'color:#991b1b;background:#fee2e2;padding:2px 8px;border-radius:4px;display:inline-block;' : ''}">${k.psiCur || '-'}</span></td>
-        <td style="font-weight:700;color:var(--primary-dark)">${k.havProyeksi || '-'}</td>
-        <td><span style="color:${k.p2k === 'Lulus' ? 'var(--success)' : 'var(--danger)'};font-weight:700">${k.p2k}</span></td>
-        <td style="font-size:12px;text-align:center;">${k.lengthOfService || '-'}</td>
-        <td>${keinginanCell}</td>
-        <td>${kesediaanCell}</td>
-        <td>${matchBadge}</td>
-      </tr>`;
-    });
-    body.innerHTML = html;
-  }
-}
-
-// --- TOAST ---
-function showToast(msg) {
-  const toast = document.getElementById('toast');
-  toast.textContent = msg;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3000);
-}
-
-// --- CHECKBOX FUNCTIONS ---
-function toggleRecCheckByNik(nik, checked) {
-  const candidate = currentEligibleCandidates.find(k => String(k.nik) === String(nik));
-  if (candidate) candidate._checked = checked;
-}
-function toggleRecCheck(idx, checked) {
-  // Legacy fallback — pakai originalRank index
-  if (currentEligibleCandidates[idx]) currentEligibleCandidates[idx]._checked = checked;
-}
-function toggleAllRecChecks(checked) {
-  currentEligibleCandidates.forEach(k => k._checked = checked);
-  document.querySelectorAll('.rec-check').forEach(cb => cb.checked = checked);
-}
-function getFilteredCandidates() {
-  const q = (document.getElementById('recSearch')?.value || '').toLowerCase();
-  if (!q) return currentEligibleCandidates;
-  return currentEligibleCandidates.filter(k =>
-    [k.nik, k.name, k.position, k.branch, k.grade].join(' ').toLowerCase().includes(q)
-  );
-}
-
-// --- DOWNLOAD REC EXCEL ---
-function downloadRecExcel() {
-  const filtered = getFilteredCandidates();
-  const checked = filtered.filter(k => k._checked);
-  const data = checked.length > 0 ? checked : filtered;
-
-  const headers = ['No', 'NIK', 'Nama', 'Usia', 'Education', 'Employee Status', 'Position', 'Job Grade', 'Principal', 'Region', 'Branch', 'WhatsApp', 'PA Level', 'AP12M', 'Psikotest', 'HAV (Proyeksi)', 'P2K', 'Match Priority'];
-  let csv = headers.join(',') + '\n';
-  data.forEach((k, i) => {
-    let phone = '';
-    if (k.phone) {
-      let raw = String(k.phone).replace(/[^\d]/g, '');
-      if (raw.startsWith('0')) raw = '62' + raw.substring(1);
-      else if (raw.startsWith('8')) raw = '62' + raw;
-      phone = raw;
-    }
-    const row = [
-      i + 1, k.nik,
-      '"' + (k.name || '').replace(/"/g, '""') + '"',
-      k.age || '', '"' + (k.education || '') + '"', '"' + (k.employeeStatus || '') + '"',
-      '"' + (k.position || '') + '"', k.grade, '"' + (k.principal || '') + '"',
-      '"' + (k.regional || '') + '"', '"' + (k.branch || '') + '"',
-      phone, k.rating, Number(k.ap12m).toFixed(2),
-      '"' + (k.psiCur || '') + '"', '"' + (k.havProyeksi || '') + '"',
-      k.p2k, '"' + (k.score >= 1000 ? 'Talent Rec' : k.score > 0 ? 'Priority' : 'Eligible') + '"'
-    ];
-    csv += row.join(',') + '\n';
-  });
-
-  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const vacName = window._currentVac ? window._currentVac.posisi.replace(/[^a-zA-Z0-9]/g, '_') : 'Candidates';
-  a.download = 'Rec_' + vacName + '_' + new Date().toISOString().slice(0, 10) + '.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('\u2705 ' + (checked.length > 0 ? checked.length + ' selected candidates' : 'All candidates') + ' downloaded!');
-}
-
-// --- DOWNLOAD DASHBOARD EXCEL ---
-function downloadDashboardExcel() {
-  const statusFilter = document.getElementById('dashStatusFilter')?.value || 'ALL';
-  const q = (document.getElementById('dashSearch')?.value || '').toLowerCase();
-  let rows = vacancyData.filter(d => {
-    if (statusFilter === 'OPEN' && d.status !== 'Open') return false;
-    if (statusFilter === 'HOLD' && d.status !== 'Hold') return false;
-    if (statusFilter === 'CLOSED' && d.status !== 'Closed' && d.status !== 'Cancel') return false;
-    if (q) {
-      const searchStr = [d.pemohon, d.posisi, d.region, d.branch].join(' ').toLowerCase();
-      if (!searchStr.includes(q)) return false;
-    }
-    return true;
-  });
-  const headers = ['No', 'Nama Pemohon', 'Posisi Vacant', 'Level', 'Region', 'Branch', 'Work Location', 'Principle', 'Reason', 'Talent List', 'Kebutuhan MP', 'Panel Interview', 'Successor Name', 'Successor Branch', 'Effective Date', 'Bulan Panel', 'Status', 'Source', 'Note'];
-  let csv = headers.join(',') + '\n';
-  rows.forEach((d, i) => {
-    const row = [i + 1, '"' + (d.pemohon || '').replace(/"/g, '""') + '"', '"' + (d.posisi || '').replace(/"/g, '""') + '"', d.level, '"' + (d.region || '') + '"', '"' + (d.branch || '') + '"', '"' + (d.workLoc || '') + '"', '"' + (d.principle || '') + '"', '"' + (d.reason || '').replace(/"/g, '""') + '"', '"' + (d.talentList || []).join('; ') + '"', d.manpower, '"' + (d.panelInterview || []).join(', ') + '"', '"' + (d.successorName || []).join(', ') + '"', '"' + (d.successorBranch || '') + '"', '"' + (d.effectiveDate || '') + '"', '"' + (d.bulanPanel || '') + '"', d.status, d.source || '', '"' + (typeof d.notes === 'string' ? d.notes : (d.notes || []).map(n => n.date + ' - ' + n.text).join(' | ')).replace(/"/g, '""') + '"'];
-    csv += row.join(',') + '\n';
-  });
-  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'Dashboard_Vacancy_' + new Date().toISOString().slice(0, 10) + '.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('\u2705 File downloaded!');
-}
-
-// ==========================================================
-// --- MASTER FILTER (v2: per-vacancy-level, dynamic from HAV_DB) ---
-// ==========================================================
-
-function getMasterFilters() {
-  try { return JSON.parse(localStorage.getItem('masterFiltersV2') || '{}'); } catch (e) { return {}; }
-}
-
-// Default config based on vacancy level number
-function getDefaultFilterConfig(vacLevelNum) {
-  const n = parseInt(vacLevelNum) || 3;
-  const grades = [];
-  if (n - 1 >= 1) grades.push('G' + (n - 1));
-  if (n - 2 >= 1) grades.push('G' + (n - 2));
-  return {
-    candidateGrades: grades.length ? grades : ['G1', 'G2'],
-    maxAge: n >= 4 ? 50 : 45,
-    excludeRating: ['R3'],
-    excludeAPM: ['<70'],
-    excludeP2K: ['Belum Lulus'],
-    excludePsikotest: ['Tidak Disarankan'],
-    excludeSP: ['Yes']
-  };
-}
-
-// Get config for a specific vacancy level + optional department
-// Lookup order: "G3::Sales" → "G3" → null (use defaults)
-function getMasterFilterConfig(vacLevelStr, dept) {
-  const filters = getMasterFilters();
-  if (dept) {
-    const specific = filters[vacLevelStr + '::' + dept];
-    if (specific) return specific;
-  }
-  return filters[vacLevelStr] || null;
-}
-
-// Extract unique non-empty values from HAV_DB for a given field key
-function getUniqueHAVValues(field) {
-  const vals = [...new Set(HAV_DB.map(k => String(k[field] || '').trim()).filter(v => v && v !== 'undefined' && v !== ''))];
-  return vals.sort();
-}
-
-function renderMasterFilter() {
-  const levelSelect = document.getElementById('mfLevelSelect');
-  const deptSelect = document.getElementById('mfDeptSelect');
-  if (!levelSelect) return;
-  const level = levelSelect.value;
-  const dept = deptSelect?.value || '';
-  const content = document.getElementById('mfContent');
-  if (!level) { content.classList.add('hidden'); return; }
-
-  // Populate department dropdown dynamically from HAV_DB
-  if (deptSelect && deptSelect.options.length <= 1) {
-    const depts = getUniqueHAVValues('department');
-    depts.forEach(d => {
-      const opt = document.createElement('option');
-      opt.value = d;
-      opt.textContent = d;
-      deptSelect.appendChild(opt);
-    });
-  }
-
-  content.classList.remove('hidden');
-  const labelParts = [level];
-  if (dept) labelParts.push(dept);
-  document.getElementById('mfLevelName').textContent = labelParts.join(' — ');
-
-  const filters = getMasterFilters();
-  const levelNum = parseInt(level.replace(/\D/g, '')) || 3;
-  const storageKey = dept ? level + '::' + dept : level;
-  const cfg = filters[storageKey] || getDefaultFilterConfig(levelNum);
-
-  // Helper: render checkbox list for a filter section
-  function renderCheckboxes(containerId, cssClass, values, selectedValues, colorSet) {
-    const div = document.getElementById(containerId);
-    if (!div) return;
-    const bg = colorSet === 'include' ? '#f0fdf4' : '#fff5f5';
-    const border = colorSet === 'include' ? '#bbf7d0' : '#fecaca';
-    div.innerHTML = values.map(v => {
-      const checked = (selectedValues || []).includes(v) ? 'checked' : '';
-      return `<label style="display:flex;align-items:center;gap:5px;padding:5px 10px;background:${bg};border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;border:1px solid ${border};">
-        <input type="checkbox" class="${cssClass}" value="${v}" ${checked}> ${v}
-      </label>`;
-    }).join('');
-  }
-
-  // Candidate Grades (INCLUDE)
-  const allGrades = HAV_DB.length > 0 ? getUniqueHAVValues('grade') : ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7'];
-  renderCheckboxes('mfCandidateGrades', 'mf-grade', allGrades, cfg.candidateGrades, 'include');
-
-  // Max Age
-  document.getElementById('mfMaxAge').value = cfg.maxAge || 45;
-
-  // Rating PA (EXCLUDE)
-  const allRatings = HAV_DB.length > 0 ? getUniqueHAVValues('rating') : ['R1', 'R2', 'R3', 'NR'];
-  renderCheckboxes('mfExcludeRating', 'mf-excl-rating', allRatings, cfg.excludeRating, 'exclude');
-
-  // APM Level (EXCLUDE)
-  const allAPM = HAV_DB.length > 0 ? getUniqueHAVValues('apmLevel') : ['<70', '70-90', '>90'];
-  renderCheckboxes('mfExcludeAPM', 'mf-excl-apm', allAPM, cfg.excludeAPM, 'exclude');
-
-  // P2K (EXCLUDE)
-  const allP2K = HAV_DB.length > 0 ? getUniqueHAVValues('p2k') : ['Lulus', 'Belum Lulus'];
-  renderCheckboxes('mfExcludeP2K', 'mf-excl-p2k', allP2K, cfg.excludeP2K, 'exclude');
-
-  // Psikotest (EXCLUDE)
-  const allPsi = HAV_DB.length > 0 ? getUniqueHAVValues('psiCur') : ['Disarankan', 'Dipertimbangkan', 'Tidak Disarankan'];
-  renderCheckboxes('mfExcludePsi', 'mf-excl-psi', allPsi, cfg.excludePsikotest, 'exclude');
-
-  // CEK SP (EXCLUDE)
-  const allSP = HAV_DB.length > 0 ? getUniqueHAVValues('sp') : ['Yes', 'No'];
-  renderCheckboxes('mfExcludeSP', 'mf-excl-sp', allSP, cfg.excludeSP, 'exclude');
-}
-
-function saveMasterFilter() {
-  const level = document.getElementById('mfLevelSelect').value;
-  if (!level) return showToast('Pilih vacancy level terlebih dahulu.');
-  const dept = document.getElementById('mfDeptSelect')?.value || '';
-  const storageKey = dept ? level + '::' + dept : level;
-
-  const filters = getMasterFilters();
-  filters[storageKey] = {
-    candidateGrades: Array.from(document.querySelectorAll('.mf-grade:checked')).map(cb => cb.value),
-    maxAge: parseInt(document.getElementById('mfMaxAge').value) || 45,
-    excludeRating: Array.from(document.querySelectorAll('.mf-excl-rating:checked')).map(cb => cb.value),
-    excludeAPM: Array.from(document.querySelectorAll('.mf-excl-apm:checked')).map(cb => cb.value),
-    excludeP2K: Array.from(document.querySelectorAll('.mf-excl-p2k:checked')).map(cb => cb.value),
-    excludePsikotest: Array.from(document.querySelectorAll('.mf-excl-psi:checked')).map(cb => cb.value),
-    excludeSP: Array.from(document.querySelectorAll('.mf-excl-sp:checked')).map(cb => cb.value),
-  };
-  localStorage.setItem('masterFiltersV2', JSON.stringify(filters));
-  const label = dept ? level + ' — ' + dept : level + ' (All Department)';
-  showToast('\u2705 Filter untuk ' + label + ' tersimpan!');
-}
-
-// ==========================================================
-// --- PRIORITY CONFIG (drag-reorder, enable/disable) ---
-// ==========================================================
-
-const PRIORITY_DEFINITIONS = [
-  { id: 'talentRec', label: 'Talent Recommendation', emoji: '\uD83C\uDFAF', bg: '#dbeafe', color: '#1e40af', desc: 'Kandidat dari Talent Rec vacancy (ajuan pemohon)' },
-  { id: 'starBelum', label: 'STAR (Belum Promosi)', emoji: '\uD83C\uDF1F', bg: '#fef08a', color: '#854d0e', desc: 'Kandidat STAR yang belum pernah dipromosikan' },
-  { id: 'starPromosi', label: 'STAR (Promosi)', emoji: '\u2B50', bg: '#fef9c3', color: '#a16207', desc: 'Kandidat STAR yang sudah pernah dipromosikan' },
-  { id: 'principalMatch', label: 'Principal Match', emoji: '\uD83C\uDFE2', bg: '#f0fdf4', color: '#166534', desc: 'Principal kandidat sama dengan vacancy' },
-  { id: 'branchMatch', label: 'Branch Match', emoji: '\uD83D\uDCCD', bg: '#eff6ff', color: '#1e40af', desc: 'Kandidat dari cabang yang sama' },
-  { id: 'regionMatch', label: 'Region Match', emoji: '\uD83D\uDDFA\uFE0F', bg: '#f9fafb', color: '#475569', desc: 'Kandidat dari region yang sama' },
-];
-
-const TIEBREAKER_DEFINITIONS = [
-  { id: 'rating', label: 'PA Level', desc: 'R1 > R2 > NR', field: 'ratingWeight' },
-  { id: 'empStatus', label: 'Employee Status', desc: 'Permanent > Acting > Contract', field: 'empWeight' },
-  { id: 'ap12m', label: 'AP12M', desc: 'Nilai tertinggi', field: 'ap12m' },
-  { id: 'psikotest', label: 'Psikotest', desc: 'Disarankan > Dipertimbangkan', field: 'psiWeight' },
-  { id: 'apmLevel', label: 'APM Level', desc: '>90 > 70-90', field: 'apmWeight' },
-];
-
-function loadPriorityConfig() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('priorityConfig') || '{}');
-    const defaultOrder = PRIORITY_DEFINITIONS.map(p => p.id);
-    const defaultEnabled = Object.fromEntries(PRIORITY_DEFINITIONS.map(p => [p.id, true]));
-    const defaultTBOrder = TIEBREAKER_DEFINITIONS.map(t => t.id);
-    const defaultTBEnabled = Object.fromEntries(TIEBREAKER_DEFINITIONS.map(t => [t.id, true]));
-    return {
-      order: saved.order || defaultOrder,
-      enabled: { ...defaultEnabled, ...(saved.enabled || {}) },
-      tiebreakerOrder: saved.tiebreakerOrder || defaultTBOrder,
-      tiebreakerEnabled: { ...defaultTBEnabled, ...(saved.tiebreakerEnabled || {}) },
-    };
-  } catch (e) {
-    return {
-      order: PRIORITY_DEFINITIONS.map(p => p.id),
-      enabled: Object.fromEntries(PRIORITY_DEFINITIONS.map(p => [p.id, true])),
-      tiebreakerOrder: TIEBREAKER_DEFINITIONS.map(t => t.id),
-      tiebreakerEnabled: Object.fromEntries(TIEBREAKER_DEFINITIONS.map(t => [t.id, true])),
-    };
-  }
-}
-
-function savePriorityConfig(cfg) {
-  localStorage.setItem('priorityConfig', JSON.stringify(cfg));
-}
-
-let _priDragFrom = null;
-
-function renderPriorityEditor() {
-  const cfg = loadPriorityConfig();
-
-  // Render main priority list
-  const container = document.getElementById('priorityEditorList');
-  if (!container) return;
-
-  const ordered = cfg.order
-    .map(id => PRIORITY_DEFINITIONS.find(p => p.id === id))
-    .filter(Boolean);
-  // Append any new items not yet in saved order
-  PRIORITY_DEFINITIONS.forEach(p => { if (!cfg.order.includes(p.id)) ordered.push(p); });
-
-  container.innerHTML = ordered.map((item, idx) => {
-    const on = cfg.enabled[item.id] !== false;
-    return `<div class="priority-row" draggable="true"
-        ondragstart="_priDragFrom=${idx}"
-        ondragover="event.preventDefault()"
-        ondrop="onPriDrop(event,${idx})"
-        style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${on ? item.bg : '#f3f4f6'};border-radius:8px;margin-bottom:6px;border:1px solid ${on ? 'rgba(0,0,0,.07)' : '#e5e7eb'};opacity:${on ? '1' : '0.5'};cursor:grab;transition:.15s;">
-      <span style="cursor:grab;color:#94a3b8;font-size:18px;line-height:1;user-select:none;">⠿</span>
-      <span style="font-weight:800;color:${on ? item.color : '#94a3b8'};width:22px;font-size:13px;">${idx + 1}.</span>
-      <span style="font-size:18px;">${item.emoji}</span>
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:700;font-size:13px;color:${on ? item.color : '#94a3b8'}">${item.label}</div>
-        <div style="font-size:11px;color:#64748b;margin-top:1px;">${item.desc}</div>
+        <div class="stat-card sc-open">
+          <div class="stat-icon-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </div>
+          <div class="stat-row">
+            <div class="stat-label">Open</div>
+            <div class="stat-value" id="statOpen">0</div>
+          </div>
+        </div>
+        <div class="stat-card sc-fulfilled">
+          <div class="stat-icon-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          </div>
+          <div class="stat-row">
+            <div class="stat-label">Fulfilled</div>
+            <div class="stat-value" id="statFulfilled">0</div>
+          </div>
+        </div>
+        <div class="stat-card sc-hold">
+          <div class="stat-icon-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="4" width="4" height="16" />
+              <rect x="14" y="4" width="4" height="16" />
+            </svg>
+          </div>
+          <div class="stat-row">
+            <div class="stat-label">On Hold</div>
+            <div class="stat-value" id="statHold">0</div>
+          </div>
+        </div>
+        <div class="stat-card sc-cancel">
+          <div class="stat-icon-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+          </div>
+          <div class="stat-row">
+            <div class="stat-label">Cancelled</div>
+            <div class="stat-value" id="statCancel">0</div>
+          </div>
+        </div>
       </div>
-      <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
-        <button onclick="movePriority(${idx},-1)" style="width:26px;height:26px;border:1px solid #e5e7eb;border-radius:4px;background:#fff;cursor:pointer;font-size:11px;" ${idx === 0 ? 'disabled' : ''}>\u25B2</button>
-        <button onclick="movePriority(${idx},1)" style="width:26px;height:26px;border:1px solid #e5e7eb;border-radius:4px;background:#fff;cursor:pointer;font-size:11px;" ${idx === ordered.length - 1 ? 'disabled' : ''}>\u25BC</button>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:6px;white-space:nowrap;">
-          <input type="checkbox" ${on ? 'checked' : ''} onchange="togglePriority('${item.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;">
-          <span style="font-size:11px;color:#64748b;font-weight:600;">Aktif</span>
-        </label>
+
+      <!-- TOOLBAR -->
+      <div class="toolbar">
+        <select id="dashStatusFilter" onchange="renderDashboard()" class="select-field">
+          <option value="ALL">Semua Status</option>
+          <option value="OPEN" selected>Only OPEN</option>
+          <option value="HOLD">Only HOLD</option>
+          <option value="CLOSED">Closed / Cancel</option>
+        </select>
+
+        <div class="search-wrap">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input type="text" id="dashSearch" class="input-field" style="padding-left:34px;width:100%;"
+            placeholder="Cari nama, posisi, region..." oninput="renderDashboard()">
+        </div>
       </div>
-    </div>`;
-  }).join('');
 
-  // Render tiebreaker list
-  const tbContainer = document.getElementById('tiebreakerEditorList');
-  if (!tbContainer) return;
-  const orderedTB = cfg.tiebreakerOrder
-    .map(id => TIEBREAKER_DEFINITIONS.find(t => t.id === id))
-    .filter(Boolean);
-  TIEBREAKER_DEFINITIONS.forEach(t => { if (!cfg.tiebreakerOrder.includes(t.id)) orderedTB.push(t); });
-
-  tbContainer.innerHTML = orderedTB.map((item, idx) => {
-    const on = cfg.tiebreakerEnabled[item.id] !== false;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f9fafb;border-radius:8px;margin-bottom:4px;border:1px solid #e5e7eb;opacity:${on ? '1' : '0.5'};">
-      <span style="color:#94a3b8;font-size:16px;user-select:none;">⠿</span>
-      <span style="font-weight:700;color:#475569;width:20px;font-size:12px;">${idx + 1}.</span>
-      <div style="flex:1;">
-        <span style="font-weight:700;font-size:13px;">${item.label}</span>
-        <span style="font-size:11px;color:#64748b;margin-left:8px;">${item.desc}</span>
+      <!-- TABLE CARD -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="card-header-row" style="padding:18px 20px 0;">
+          <div class="card-title" style="margin-bottom:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            </svg>
+            Vacancy Requests
+          </div>
+          <div class="card-actions">
+            <span class="vacancy-click-hint">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 3h6v6M10 14L21 3" />
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              </svg>
+              Klik posisi untuk generate rekomendasi
+            </span>
+            <button class="btn btn-success btn-sm" onclick="downloadDashboardExcel()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Excel
+            </button>
+          </div>
+        </div>
+        <div style="padding:14px 20px 20px;">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Requestor</th>
+                  <th>Vacant Position</th>
+                  <th>Level</th>
+                  <th>Region</th>
+                  <th>Branch</th>
+                  <th>Work Location</th>
+                  <th>Principle</th>
+                  <th>Reason</th>
+                  <th>Department</th>
+                  <th>Talent Rec</th>
+                  <th>Talent List</th>
+                  <th>Manpower Needs</th>
+                  <th>Panel Interview</th>
+                  <th>Successor Name</th>
+                  <th>Successor Branch</th>
+                  <th>Effective Date</th>
+                  <th>Panel Month</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="dashBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
-      <div style="display:flex;gap:4px;align-items:center;">
-        <button onclick="moveTiebreaker(${idx},-1)" style="width:24px;height:24px;border:1px solid #e5e7eb;border-radius:4px;background:#fff;cursor:pointer;font-size:10px;" ${idx === 0 ? 'disabled' : ''}>\u25B2</button>
-        <button onclick="moveTiebreaker(${idx},1)" style="width:24px;height:24px;border:1px solid #e5e7eb;border-radius:4px;background:#fff;cursor:pointer;font-size:10px;" ${idx === orderedTB.length - 1 ? 'disabled' : ''}>\u25BC</button>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:6px;white-space:nowrap;">
-          <input type="checkbox" ${on ? 'checked' : ''} onchange="toggleTiebreaker('${item.id}',this.checked)" style="width:14px;height:14px;cursor:pointer;">
-          <span style="font-size:11px;color:#64748b;font-weight:600;">Aktif</span>
-        </label>
+    </div>
+
+    <!-- ══ RECOMMENDATION RTM ═════════════════════════════ -->
+    <div class="page" id="page-recommendation">
+      <div class="page-header">
+        <div class="page-header-text">
+          <h2>Recommendation RTM</h2>
+          <p>Auto-filter eligible candidates berdasarkan vacancy requirements</p>
+        </div>
       </div>
-    </div>`;
-  }).join('');
-}
 
-function onPriDrop(event, toIdx) {
-  event.preventDefault();
-  if (_priDragFrom === null || _priDragFrom === toIdx) return;
-  const cfg = loadPriorityConfig();
-  const arr = [...cfg.order];
-  const [moved] = arr.splice(_priDragFrom, 1);
-  arr.splice(toIdx, 0, moved);
-  cfg.order = arr;
-  savePriorityConfig(cfg);
-  _priDragFrom = null;
-  renderPriorityEditor();
-  showToast('\u2705 Urutan priority diperbarui!');
-}
+      <!-- Vacancy Selector -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          Pilih Vacancy
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div id="vacancyDropdown" style="flex:1;position:relative;">
+            <input type="text" id="recVacancyInput" placeholder="Ketik nama posisi atau pilih dari list..."
+              autocomplete="off" onclick="toggleVacancyDropdown(true)" oninput="filterVacancyDropdown()"
+              class="input-field" style="width:100%;padding:11px 16px;font-size:14px;">
+            <div id="vacancyDropdownList"
+              style="display:none;position:absolute;top:100%;left:0;width:max-content;min-width:100%;max-height:280px;overflow-y:auto;background:#fff;border:1.5px solid var(--border);border-top:none;border-radius:0 0 8px 8px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.1);">
+            </div>
+          </div>
+          <button class="btn" onclick="generateRecommendation()" style="white-space:nowrap;padding:11px 20px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            Generate Candidates
+          </button>
+        </div>
+        <div id="recVacancyInfo" class="hidden rec-info-box"></div>
+      </div>
 
-function movePriority(fromIdx, dir) {
-  const cfg = loadPriorityConfig();
-  const toIdx = fromIdx + dir;
-  if (toIdx < 0 || toIdx >= cfg.order.length) return;
-  const arr = [...cfg.order];
-  [arr[fromIdx], arr[toIdx]] = [arr[toIdx], arr[fromIdx]];
-  cfg.order = arr;
-  savePriorityConfig(cfg);
-  renderPriorityEditor();
-  showToast('\u2705 Urutan priority disimpan!');
-}
+      <!-- Filter Applied -->
+      <div id="recFilterInfo" class="hidden card filter-summary-card" style="padding:16px 20px;">
+        <div style="font-size:13px;font-weight:700;color:#92400e;display:flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+          </svg>
+          Filter Applied
+        </div>
+        <div id="recFilterDetails" class="filter-tags"></div>
+      </div>
 
-function togglePriority(id, enabled) {
-  const cfg = loadPriorityConfig();
-  cfg.enabled[id] = enabled;
-  savePriorityConfig(cfg);
-  renderPriorityEditor();
-}
+      <!-- Results -->
+      <div id="recResult" class="hidden">
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div class="card-header-row" style="padding:18px 20px 0;">
+            <div class="card-title" style="margin-bottom:0;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+              Recommended Candidates
+            </div>
+            <span id="recCount" style="font-size:12px;color:var(--muted);font-weight:600;margin-left:4px;"></span>
+            <div class="card-actions">
+              <div class="search-wrap" style="max-width:260px;">
+                <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" id="recSearch" class="input-field" style="padding-left:32px;width:100%;"
+                  placeholder="Cari nama, NIK, branch..." oninput="renderRecommendationTable()">
+              </div>
+              <button class="btn btn-purple btn-sm" onclick="saveCheckedToVacancy()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+                Save to Talent List
+              </button>
+              <button class="btn btn-success btn-sm" onclick="downloadRecExcel()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download Excel
+              </button>
+            </div>
+          </div>
 
-function moveTiebreaker(fromIdx, dir) {
-  const cfg = loadPriorityConfig();
-  const toIdx = fromIdx + dir;
-  if (toIdx < 0 || toIdx >= cfg.tiebreakerOrder.length) return;
-  const arr = [...cfg.tiebreakerOrder];
-  [arr[fromIdx], arr[toIdx]] = [arr[toIdx], arr[fromIdx]];
-  cfg.tiebreakerOrder = arr;
-  savePriorityConfig(cfg);
-  renderPriorityEditor();
-  showToast('\u2705 Urutan tiebreaker disimpan!');
-}
+          <div
+            style="padding:10px 20px;background:#f0f4ff;border-top:1px solid #e0e7ff;border-bottom:1px solid #e0e7ff;font-size:12px;color:#4338ca;">
+            ✦ Top 5 kandidat disorot berdasarkan skor prioritas tertinggi.
+            Kandidat dari <strong>Branch/Region yang sama</strong> mendapat prioritas utama.
+          </div>
 
-function toggleTiebreaker(id, enabled) {
-  const cfg = loadPriorityConfig();
-  cfg.tiebreakerEnabled[id] = enabled;
-  savePriorityConfig(cfg);
-  renderPriorityEditor();
-}
+          <div style="padding:0 20px 20px;">
+            <div class="table-wrap" style="margin-top:14px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" id="recCheckAll" onchange="toggleAllRecChecks(this.checked)"
+                        title="Select All" style="cursor:pointer;width:14px;height:14px;"></th>
+                    <th>No</th>
+                    <th data-sort="nik" onclick="sortRecColumn('nik')">NIK <span class="sort-arrow"></span></th>
+                    <th data-sort="name" onclick="sortRecColumn('name')">Nama <span class="sort-arrow"></span></th>
+                    <th data-sort="age" onclick="sortRecColumn('age')">Usia <span class="sort-arrow"></span></th>
+                    <th data-sort="education" onclick="sortRecColumn('education')">Education <span class="sort-arrow"></span></th>
+                    <th data-sort="employeeStatus" onclick="sortRecColumn('employeeStatus')">Emp. Status <span class="sort-arrow"></span></th>
+                    <th data-sort="position" onclick="sortRecColumn('position')">Position <span class="sort-arrow"></span></th>
+                    <th data-sort="grade" onclick="sortRecColumn('grade')">Job Grade <span class="sort-arrow"></span></th>
+                    <th data-sort="principal" onclick="sortRecColumn('principal')">Principal <span class="sort-arrow"></span></th>
+                    <th data-sort="regional" onclick="sortRecColumn('regional')">Region <span class="sort-arrow"></span></th>
+                    <th data-sort="branch" onclick="sortRecColumn('branch')">Branch <span class="sort-arrow"></span></th>
+                    <th data-sort="department" onclick="sortRecColumn('department')">Department <span class="sort-arrow"></span></th>
+                    <th>WhatsApp</th>
+                    <th data-sort="rating" onclick="sortRecColumn('rating')">PA Level <span class="sort-arrow"></span></th>
+                    <th data-sort="ap12m" onclick="sortRecColumn('ap12m')">AP12M <span class="sort-arrow"></span></th>
+                    <th data-sort="psiCur" onclick="sortRecColumn('psiCur')">Psikotest <span class="sort-arrow"></span></th>
+                    <th data-sort="havProyeksi" onclick="sortRecColumn('havProyeksi')">HAV (Proyeksi) <span class="sort-arrow"></span></th>
+                    <th data-sort="p2k" onclick="sortRecColumn('p2k')">P2K <span class="sort-arrow"></span></th>
+                    <th data-sort="lengthOfService" onclick="sortRecColumn('lengthOfService')">Length of Service <span class="sort-arrow"></span></th>
+                    <th data-sort="keinginanPromosi" onclick="sortRecColumn('keinginanPromosi')">Keinginan Promosi <span class="sort-arrow"></span></th>
+                    <th data-sort="kesediaanPenempatan" onclick="sortRecColumn('kesediaanPenempatan')">Kesediaan Penempatan <span class="sort-arrow"></span></th>
+                    <th>Match Priority</th>
+                  </tr>
+                </thead>
+                <tbody id="recBody"></tbody>
+              </table>
+            </div>
+            <p id="recNoResult" class="hidden empty-msg">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Tidak ada kandidat yang memenuhi kriteria filter.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
 
-// ==========================================================
-// --- TALENT SEARCH ---
-// ==========================================================
-let _tsResults = [];
-let _tsSortState = { col: null, dir: 0 };
-let _recSortState = { col: null, dir: 0 };
-let _msSelected = { grade: [], department: [], region: [], principal: [] };
-let _tsFiltersInitialized = false;
+    <!-- ══ TALENT SEARCH ══════════════════════════════════ -->
+    <div class="page" id="page-talentsearch">
+      <div class="page-header">
+        <div class="page-header-text">
+          <h2>Talent Search</h2>
+          <p>Cari dan filter seluruh database karyawan berdasarkan kriteria</p>
+        </div>
+      </div>
 
-function initTSFilters() {
-  if (_tsFiltersInitialized && HAV_DB.length > 0) return;
-  if (HAV_DB.length === 0) {
-    showToast('⏳ Menunggu data HAV...');
-    const wi = setInterval(() => {
-      if (HAV_DB.length > 0) { clearInterval(wi); _populateMSFilters(); }
-    }, 500);
-    return;
-  }
-  _populateMSFilters();
-}
+      <div class="card">
+        <div class="card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          Filter Candidate
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+          <div class="ms-wrap">
+            <label class="ms-lbl">Grade</label>
+            <div class="ms-trigger" onclick="toggleMS('grade')">
+              <span id="msTxt_grade">Semua</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="ms-dd hidden" id="msDD_grade">
+              <input type="text" class="ms-search" placeholder="Cari grade..." oninput="filterMSOpts('grade',this.value)">
+              <div class="ms-opts" id="msOpts_grade"></div>
+            </div>
+          </div>
+          <div class="ms-wrap">
+            <label class="ms-lbl">Department</label>
+            <div class="ms-trigger" onclick="toggleMS('department')">
+              <span id="msTxt_department">Semua</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="ms-dd hidden" id="msDD_department">
+              <input type="text" class="ms-search" placeholder="Cari department..." oninput="filterMSOpts('department',this.value)">
+              <div class="ms-opts" id="msOpts_department"></div>
+            </div>
+          </div>
+          <div class="ms-wrap">
+            <label class="ms-lbl">Region</label>
+            <div class="ms-trigger" onclick="toggleMS('region')">
+              <span id="msTxt_region">Semua</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="ms-dd hidden" id="msDD_region">
+              <input type="text" class="ms-search" placeholder="Cari region..." oninput="filterMSOpts('region',this.value)">
+              <div class="ms-opts" id="msOpts_region"></div>
+            </div>
+          </div>
+          <div class="ms-wrap">
+            <label class="ms-lbl">Principal</label>
+            <div class="ms-trigger" onclick="toggleMS('principal')">
+              <span id="msTxt_principal">Semua</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="ms-dd hidden" id="msDD_principal">
+              <input type="text" class="ms-search" placeholder="Cari principal..." oninput="filterMSOpts('principal',this.value)">
+              <div class="ms-opts" id="msOpts_principal"></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn" onclick="filterTalentSearch()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            Search
+          </button>
+          <button class="btn" onclick="resetTSFilters()" style="background:#f3f4f6;color:#374151;">🔄 Reset</button>
+        </div>
+      </div>
 
-function _populateMSFilters() {
-  const fieldMap = { grade: 'grade', department: 'department', region: 'regional', principal: 'principal' };
-  Object.entries(fieldMap).forEach(([key, havField]) => {
-    const vals = getUniqueHAVValues(havField);
-    const container = document.getElementById('msOpts_' + key);
-    if (!container) return;
-    container.innerHTML = vals.map(v =>
-      `<label class="ms-opt-item"><input type="checkbox" value="${v}" onchange="onMSChange('${key}')"> ${v}</label>`
-    ).join('');
-  });
-  _tsFiltersInitialized = true;
-}
+      <div id="tsResult" class="hidden">
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div class="card-header-row" style="padding:18px 20px 0;">
+            <div class="card-title" style="margin-bottom:0;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              Hasil Pencarian
+            </div>
+            <span id="tsCount" style="font-size:12px;color:var(--muted);font-weight:600;margin-left:4px;"></span>
+            <div class="card-actions">
+              <div class="search-wrap" style="max-width:260px;">
+                <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" id="tsSearch" class="input-field" style="padding-left:32px;width:100%;" placeholder="Cari nama, NIK..." oninput="renderTSTable()">
+              </div>
+              <button class="btn btn-success btn-sm" onclick="downloadTSExcel()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download Excel
+              </button>
+            </div>
+          </div>
+          <div style="padding:0 20px 20px;">
+            <div class="table-wrap" style="margin-top:14px;">
+              <table id="tsTable">
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" onchange="toggleAllTSChecks(this.checked)" style="cursor:pointer;width:14px;height:14px;"></th>
+                    <th>No</th>
+                    <th data-sort="nik" onclick="sortTSColumn('nik')">NIK <span class="sort-arrow"></span></th>
+                    <th data-sort="name" onclick="sortTSColumn('name')">Nama <span class="sort-arrow"></span></th>
+                    <th data-sort="age" onclick="sortTSColumn('age')">Usia <span class="sort-arrow"></span></th>
+                    <th data-sort="employeeStatus" onclick="sortTSColumn('employeeStatus')">Emp. Status <span class="sort-arrow"></span></th>
+                    <th data-sort="position" onclick="sortTSColumn('position')">Position <span class="sort-arrow"></span></th>
+                    <th data-sort="grade" onclick="sortTSColumn('grade')">Grade <span class="sort-arrow"></span></th>
+                    <th data-sort="department" onclick="sortTSColumn('department')">Department <span class="sort-arrow"></span></th>
+                    <th data-sort="principal" onclick="sortTSColumn('principal')">Principal <span class="sort-arrow"></span></th>
+                    <th data-sort="regional" onclick="sortTSColumn('regional')">Region <span class="sort-arrow"></span></th>
+                    <th data-sort="branch" onclick="sortTSColumn('branch')">Branch <span class="sort-arrow"></span></th>
+                    <th data-sort="rating" onclick="sortTSColumn('rating')">PA Level <span class="sort-arrow"></span></th>
+                    <th data-sort="ap12m" onclick="sortTSColumn('ap12m')">AP12M <span class="sort-arrow"></span></th>
+                    <th data-sort="psiCur" onclick="sortTSColumn('psiCur')">Psikotest <span class="sort-arrow"></span></th>
+                    <th>Match Priority</th>
+                  </tr>
+                </thead>
+                <tbody id="tsBody"></tbody>
+              </table>
+            </div>
+            <p id="tsNoResult" class="hidden empty-msg">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Gunakan filter di atas untuk mencari kandidat.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
 
-function toggleMS(id) {
-  const dd = document.getElementById('msDD_' + id);
-  if (!dd) return;
-  const isHidden = dd.classList.contains('hidden');
-  // Close all dropdowns first
-  document.querySelectorAll('.ms-dd').forEach(d => d.classList.add('hidden'));
-  if (isHidden) dd.classList.remove('hidden');
-}
+    <!-- ══ MASTER FILTER ══════════════════════════════════ -->
+    <div class="page" id="page-masterfilter">
+      <div class="page-header">
+        <div class="page-header-text">
+          <h2>Master Filter</h2>
+          <p>Konfigurasi filter & urutan prioritas per Vacancy Level untuk Recommendation RTM</p>
+        </div>
+      </div>
 
-// Close multi-select dropdowns when clicking outside
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.ms-wrap')) {
-    document.querySelectorAll('.ms-dd').forEach(d => d.classList.add('hidden'));
-  }
-});
+      <div class="card">
+        <div class="card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />
+          </svg>
+          Pilih Vacancy Level & Department
+        </div>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:14px;">Setiap kombinasi level + department bisa punya
+          setting filter yang
+          berbeda. Kosongkan department untuk apply ke <strong>semua department</strong>.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Vacancy
+              Level</label>
+            <select id="mfLevelSelect" onchange="renderMasterFilter()" class="select-field" style="width:220px;">
+              <option value="">-- Pilih Level --</option>
+              <option value="G2">G2 — Coordinator</option>
+              <option value="G3">G3 — Supervisor</option>
+              <option value="G4">G4 — Manager</option>
+              <option value="G5">G5 — Head</option>
+              <option value="G6">G6 — GM</option>
+              <option value="G7">G7 — Direktur</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Department
+              <span style="font-weight:400;color:#9ca3af;">(opsional)</span></label>
+            <select id="mfDeptSelect" onchange="renderMasterFilter()" class="select-field" style="width:240px;">
+              <option value="">All Department</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
-function onMSChange(key) {
-  const container = document.getElementById('msOpts_' + key);
-  const checked = Array.from(container.querySelectorAll('input:checked')).map(cb => cb.value);
-  _msSelected[key] = checked;
-  const txt = document.getElementById('msTxt_' + key);
-  if (checked.length === 0) {
-    txt.innerHTML = 'Semua';
-  } else {
-    txt.innerHTML = checked.length + ' dipilih <span class="ms-count">' + checked.length + '</span>';
-  }
-}
+      <div id="mfContent" class="hidden">
+        <div class="card">
+          <div class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
+            </svg>
+            Filter — Vacancy Level <span id="mfLevelName" style="color:var(--primary);font-weight:800;"></span>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;align-items:center;">
+            <span
+              style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:700;">✓
+              Include</span>
+            <span style="font-size:12px;color:#6b7280;">= Grade yang ditampilkan sebagai kandidat</span>
+            <span style="margin:0 6px;color:#d1d5db;">|</span>
+            <span
+              style="background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:700;">✗
+              Exclude</span>
+            <span style="font-size:12px;color:#6b7280;">= Nilai yang <strong>tidak</strong> masuk rekomendasi (centang
+              yang ingin diblokir)</span>
+          </div>
+          <p style="font-size:12px;color:#6b7280;margin-bottom:20px;">Kandidat dari <strong>Talent Rec</strong> vacancy
+            selalu bypass semua filter.</p>
 
-function filterMSOpts(key, q) {
-  const container = document.getElementById('msOpts_' + key);
-  const items = container.querySelectorAll('.ms-opt-item');
-  const ql = q.toLowerCase();
-  items.forEach(item => {
-    item.style.display = item.textContent.toLowerCase().includes(ql) ? '' : 'none';
-  });
-}
+          <div class="form-grid" style="gap:24px;">
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">🎓 Candidate Grade <span
+                  style="background:#dcfce7;color:#166534;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">INCLUDE</span></label>
+              <p style="font-size:11px;color:#6b7280;margin-bottom:8px;">Grade kandidat yang ditampilkan untuk vacancy
+                level ini</p>
+              <div id="mfCandidateGrades" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">🎂 Max Usia</label>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input type="number" id="mfMaxAge" value="45" min="20" max="60" class="input-field" style="width:90px;">
+                <span style="font-size:13px;color:#6b7280;font-weight:500;">tahun</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">📊 Rating PA <span
+                  style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">EXCLUDE</span></label>
+              <p style="font-size:11px;color:#6b7280;margin-bottom:8px;">Centang rating yang ingin diblokir</p>
+              <div id="mfExcludeRating" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">📈 APM Level <span
+                  style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">EXCLUDE</span></label>
+              <p style="font-size:11px;color:#6b7280;margin-bottom:8px;">Centang APM Level yang ingin diblokir</p>
+              <div id="mfExcludeAPM" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">✅ CEK P2K <span
+                  style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">EXCLUDE</span></label>
+              <div id="mfExcludeP2K" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
+            </div>
+            <div class="form-group">
+              <label style="font-weight:700;margin-bottom:8px;">🧠 Psikotest <span
+                  style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">EXCLUDE</span></label>
+              <div id="mfExcludePsi" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;"></div>
+            </div>
+            <div class="form-group full">
+              <label style="font-weight:700;margin-bottom:8px;">⚠️ CEK SP <span
+                  style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-left:4px;">EXCLUDE</span></label>
+              <div id="mfExcludeSP" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+            </div>
+          </div>
+          <button class="btn" onclick="saveMasterFilter()" style="margin-top:24px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            Save Filter untuk Level Ini
+          </button>
+        </div>
 
-function filterTalentSearch() {
-  const { grade, department, region, principal } = _msSelected;
+        <!-- Priority Editor -->
+        <div class="card">
+          <div class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" />
+              <line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+            Urutan Prioritas Recommendation RTM
+          </div>
+          <p style="font-size:12px;color:#6b7280;margin-bottom:18px;">Drag ⠿ atau klik ▲▼ untuk ubah urutan. Toggle
+            <strong>Aktif</strong> untuk menonaktifkan kriteria.<br><em>Skor utama: item posisi 1 selalu menang dari
+              gabungan semua item di bawahnya.</em>
+          </p>
 
-  // If no filters selected, show all
-  _tsResults = HAV_DB.filter(k => {
-    if (grade.length > 0 && !grade.includes(k.grade)) return false;
-    if (department.length > 0 && !department.includes(k.department)) return false;
-    if (region.length > 0 && !region.includes(k.regional)) return false;
-    if (principal.length > 0 && !principal.includes(k.principal)) return false;
-    return true;
-  });
+          <div style="margin-bottom:20px;">
+            <div
+              style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding:7px 12px;background:#f3f4f6;border-radius:7px;display:flex;align-items:center;gap:6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+              Skor Utama — Menentukan urutan teratas kandidat
+            </div>
+            <div id="priorityEditorList"></div>
+          </div>
 
-  // Reset state
-  _tsResults.forEach(k => { k._tsChecked = false; });
-  _tsSortState = { col: null, dir: 0 };
-  document.getElementById('tsResult').classList.remove('hidden');
-  document.getElementById('tsSearch').value = '';
-  renderTSTable();
-  showToast('✅ ' + _tsResults.length + ' kandidat ditemukan');
-}
+          <div>
+            <div
+              style="font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding:7px 12px;background:#f3f4f6;border-radius:7px;display:flex;align-items:center;gap:6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="4" y1="10" x2="14" y2="10" />
+                <line x1="4" y1="14" x2="17" y2="14" />
+              </svg>
+              Tiebreaker — Digunakan jika skor utama sama
+            </div>
+            <div id="tiebreakerEditorList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-function resetTSFilters() {
-  _msSelected = { grade: [], department: [], region: [], principal: [] };
-  document.querySelectorAll('.ms-opts input[type="checkbox"]').forEach(cb => { cb.checked = false; });
-  ['grade', 'department', 'region', 'principal'].forEach(key => {
-    const txt = document.getElementById('msTxt_' + key);
-    if (txt) txt.innerHTML = 'Semua';
-  });
-  document.getElementById('tsResult').classList.add('hidden');
-  _tsResults = [];
-  showToast('🔄 Filter direset');
-}
+  </main>
 
-function renderTSTable() {
-  const q = (document.getElementById('tsSearch')?.value || '').toLowerCase();
-  const body = document.getElementById('tsBody');
-  const noRes = document.getElementById('tsNoResult');
-  const countEl = document.getElementById('tsCount');
+  <!-- PANEL INTERVIEW MODAL -->
+  <div class="modal-overlay hidden" id="panelModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>📋 Panel Interview — <span id="panelVacName"></span></h3>
+        <button class="modal-close" onclick="closePanelModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:#6b7280;font-size:13px;margin-bottom:14px;">Centang kandidat yang akan diproses panel interview:
+        </p>
+        <div id="panelCandidateList"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closePanelModal()">Cancel</button>
+        <button class="btn-save" onclick="savePanelInterview()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+          </svg>
+          Save Panel
+        </button>
+      </div>
+    </div>
+  </div>
 
-  let filtered = _tsResults;
-  if (q) {
-    filtered = _tsResults.filter(k =>
-      [k.nik, k.name, k.position, k.branch, k.grade, k.department, k.principal].join(' ').toLowerCase().includes(q)
-    );
-  }
+  <script src="app.js"></script>
+</body>
 
-  // Apply sort
-  if (_tsSortState.col) {
-    filtered = [...filtered].sort((a, b) => {
-      let va = a[_tsSortState.col] ?? '';
-      let vb = b[_tsSortState.col] ?? '';
-      if (typeof va === 'number' || typeof vb === 'number') {
-        va = Number(va) || 0; vb = Number(vb) || 0;
-        return _tsSortState.dir === 1 ? va - vb : vb - va;
-      }
-      va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
-      return _tsSortState.dir === 1 ? va.localeCompare(vb) : vb.localeCompare(va);
-    });
-  }
-
-  countEl.textContent = filtered.length + ' candidate(s) found';
-
-  if (filtered.length === 0) {
-    body.innerHTML = '';
-    noRes.classList.remove('hidden');
-    return;
-  }
-
-  noRes.classList.add('hidden');
-  const { grade, department, region, principal } = _msSelected;
-
-  let html = '';
-  filtered.forEach((k, i) => {
-    // Match priority badges based on selected filters
-    let matchBadge = '';
-    if (region.length > 0 && region.includes(k.regional))
-      matchBadge += '<span class="match-badge match-region" style="margin-right:3px">📍 Region</span>';
-    if (principal.length > 0 && principal.includes(k.principal))
-      matchBadge += '<span class="match-badge" style="background:#f0fdf4;color:#166534;margin-right:3px">🏢 Principal</span>';
-    if (department.length > 0 && department.includes(k.department))
-      matchBadge += '<span class="match-badge" style="background:#ede9fe;color:#5b21b6;margin-right:3px">🏷️ Dept</span>';
-    if (grade.length > 0 && grade.includes(k.grade))
-      matchBadge += '<span class="match-badge" style="background:#eef2ff;color:#3730a3;margin-right:3px">🎓 Grade</span>';
-    if (!matchBadge) matchBadge = '<span class="match-badge match-other">—</span>';
-
-    // Employee status badge
-    let empBadge = k.employeeStatus || '-';
-    const esLow = String(k.employeeStatus).toLowerCase();
-    if (esLow.includes('permanent') || esLow.includes('tetap')) empBadge = '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Permanent</span>';
-    else if (esLow.includes('acting')) empBadge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Acting</span>';
-    else if (esLow.includes('contract') || esLow.includes('kontrak')) empBadge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">Contract</span>';
-
-    const isChecked = k._tsChecked ? 'checked' : '';
-    const ap12mVal = Number(k.ap12m).toFixed(2);
-
-    html += `<tr>
-      <td style="text-align:center"><input type="checkbox" class="ts-check" data-nik="${k.nik}" ${isChecked} onchange="toggleTSCheck('${k.nik}',this.checked)"></td>
-      <td><span class="row-num">${i + 1}</span></td>
-      <td style="font-weight:600;font-size:12px;">${k.nik}</td>
-      <td style="font-weight:500">${k.name}</td>
-      <td style="text-align:center">${k.age || '-'}</td>
-      <td>${empBadge}</td>
-      <td style="font-size:12px;">${k.position}</td>
-      <td><span style="background:#eef2ff;color:var(--primary-dark);padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">${k.grade}</span></td>
-      <td style="font-size:12px;">${k.department || '-'}</td>
-      <td style="font-size:12px;">${k.principal || '-'}</td>
-      <td style="font-size:12px;">${k.regional || '-'}</td>
-      <td style="font-weight:600;font-size:12px;">${k.branch}</td>
-      <td><span style="font-weight:700;${k.rating === 'R1' ? 'color:#065f46;' : k.rating === 'R2' ? 'color:#1e40af;' : 'color:#6b7280;'}">${k.rating}</span></td>
-      <td style="text-align:center;font-weight:600;">${ap12mVal}</td>
-      <td style="font-size:12px;">${k.psiCur || '-'}</td>
-      <td>${matchBadge}</td>
-    </tr>`;
-  });
-  body.innerHTML = html;
-}
-
-function toggleTSCheck(nik, checked) {
-  const k = _tsResults.find(k => String(k.nik) === String(nik));
-  if (k) k._tsChecked = checked;
-}
-
-function toggleAllTSChecks(checked) {
-  _tsResults.forEach(k => { k._tsChecked = checked; });
-  document.querySelectorAll('.ts-check').forEach(cb => { cb.checked = checked; });
-}
-
-function downloadTSExcel() {
-  const q = (document.getElementById('tsSearch')?.value || '').toLowerCase();
-  let pool = _tsResults;
-  if (q) {
-    pool = _tsResults.filter(k =>
-      [k.nik, k.name, k.position, k.branch, k.grade, k.department].join(' ').toLowerCase().includes(q)
-    );
-  }
-  const checked = pool.filter(k => k._tsChecked);
-  const data = checked.length > 0 ? checked : pool;
-
-  if (data.length === 0) return showToast('Tidak ada data untuk didownload.');
-
-  const headers = ['No', 'NIK', 'Nama', 'Usia', 'Employee Status', 'Position', 'Job Grade', 'Department', 'Principal', 'Region', 'Branch', 'PA Level', 'AP12M', 'Psikotest', 'HAV (Proyeksi)', 'P2K'];
-  let csv = headers.join(',') + '\n';
-  data.forEach((k, i) => {
-    const row = [
-      i + 1, k.nik,
-      '"' + (k.name || '').replace(/"/g, '""') + '"',
-      k.age || '',
-      '"' + (k.employeeStatus || '') + '"',
-      '"' + (k.position || '') + '"',
-      k.grade,
-      '"' + (k.department || '') + '"',
-      '"' + (k.principal || '') + '"',
-      '"' + (k.regional || '') + '"',
-      '"' + (k.branch || '') + '"',
-      k.rating,
-      Number(k.ap12m).toFixed(2),
-      '"' + (k.psiCur || '') + '"',
-      '"' + (k.havProyeksi || '') + '"',
-      k.p2k
-    ];
-    csv += row.join(',') + '\n';
-  });
-
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'TalentSearch_' + new Date().toISOString().slice(0, 10) + '.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('✅ ' + (checked.length > 0 ? checked.length + ' selected' : 'All ' + data.length) + ' candidates downloaded!');
-}
-
-// --- SORT COLUMNS (shared for RTM and Talent Search) ---
-function sortRecColumn(col) {
-  if (_recSortState.col === col) {
-    _recSortState.dir = _recSortState.dir === 1 ? 2 : _recSortState.dir === 2 ? 0 : 1;
-    if (_recSortState.dir === 0) _recSortState.col = null;
-  } else {
-    _recSortState = { col, dir: 1 };
-  }
-  renderRecommendationTable();
-  _updateSortArrows('recBody');
-}
-
-function sortTSColumn(col) {
-  if (_tsSortState.col === col) {
-    _tsSortState.dir = _tsSortState.dir === 1 ? 2 : _tsSortState.dir === 2 ? 0 : 1;
-    if (_tsSortState.dir === 0) _tsSortState.col = null;
-  } else {
-    _tsSortState = { col, dir: 1 };
-  }
-  renderTSTable();
-  _updateSortArrows('tsBody');
-}
-
-function _updateSortArrows(bodyId) {
-  const state = bodyId === 'recBody' ? _recSortState : _tsSortState;
-  const table = document.getElementById(bodyId)?.closest('table');
-  if (!table) return;
-  table.querySelectorAll('th[data-sort]').forEach(th => {
-    const arrow = th.querySelector('.sort-arrow');
-    if (!arrow) return;
-    const col = th.getAttribute('data-sort');
-    if (col === state.col) {
-      arrow.textContent = state.dir === 1 ? ' ▲' : state.dir === 2 ? ' ▼' : '';
-    } else {
-      arrow.textContent = '';
-    }
-  });
-}
-
-// --- INIT ---
-document.addEventListener('DOMContentLoaded', () => {
-  fetchInitialData();
-});
+</html>
