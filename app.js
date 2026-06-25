@@ -204,7 +204,7 @@ function renderDashboard() {
       <td>${d.reason}</td>
       <td style="font-size:12px;">${d.department || '<span style=\"color:#94a3b8;font-size:11px;font-style:italic\">-</span>'}</td>
       <td>${tRecHtml}</td>
-      <td>${tListHtml}</td>
+      <td>${tListHtml}<div style="margin-top:6px;"><span class="posisi-link" onclick="goToRecommendation(${vacancyData.indexOf(d)})" title="Generate rekomendasi kandidat" style="font-size:11px;display:inline-flex;align-items:center;gap:3px;">⭐ Generate Candidate</span></div></td>
       <td style="text-align:center;font-weight:700">${d.manpower}</td>
       <td><button class="btn-edit" onclick="openPanelModal(${d.rowIndex})" style="white-space:nowrap;">📋 ${panelBtnText}</button></td>
       <td>${sucHtml}</td>
