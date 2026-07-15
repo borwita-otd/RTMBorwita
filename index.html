@@ -187,7 +187,7 @@
       </div>
 
       <!-- TABLE CARD -->
-      <div class="card" style="padding:0;overflow:hidden;">
+      <div class="card" style="padding:0;overflow:visible;">
         <div class="card-header-row" style="padding:18px 20px 0;">
           <div class="card-title" style="margin-bottom:0;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -213,9 +213,9 @@
             </button>
           </div>
         </div>
-        <div style="padding:14px 20px 20px;">
-          <div class="table-wrap">
-            <table>
+        <div style="max-height: 400px; overflow-y: auto; width: 100%; margin-top: 15px; border-radius: 8px 8px 0 0; position: relative;">
+          <div class="table-wrap" style="overflow: visible;">
+            <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
               <thead>
                 <tr>
                   <th>No</th>
