@@ -120,8 +120,17 @@ function renderDashboard() {
   const body = document.getElementById('dashBody');
   if (!body) return;
 
-  const statusOrder = { 'Open': 1, 'Hold': 2, 'Closed': 3, 'Cancel': 4 };
-  vacancyData.sort((a, b) => (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99));
+  // ================= 1. REVISI UTAMA: SORTING (TERAKHIR DIEDIT / DIBUAT) =================
+  vacancyData.sort((a, b) => {
+    // Ambil waktu edit terakhir (lastEdited)
+    // Jika belum pernah diedit, gunakan waktu dibuat (timestamp) sebagai cadangan
+    // Jika keduanya kosong, gunakan nilai 0 (waktu lampau)
+    const timeA = a.lastEdited ? new Date(a.lastEdited).getTime() : (a.timestamp ? new Date(a.timestamp).getTime() : 0);
+    const timeB = b.lastEdited ? new Date(b.lastEdited).getTime() : (b.timestamp ? new Date(b.timestamp).getTime() : 0);
+    
+    return timeB - timeA; // Mengurutkan dari yang paling baru ke terlama
+  });
+  // ====================================================================================
 
   // Date filter for stats
   let statsData = vacancyData;
@@ -150,6 +159,10 @@ function renderDashboard() {
   document.getElementById('statCancel').textContent = cancel;
 
   let html = '';
+  
+  // Variabel counter manual untuk penomoran baris yang lolos filter
+  let displayNo = 1;
+
   vacancyData.forEach((d, i) => {
     // Date filter — apply to table rows too
     if (dateStart || dateEnd) {
@@ -192,8 +205,13 @@ function renderDashboard() {
     sucHtml += '</select>';
     if (!approvedCandidates.length) sucHtml = '<span style="color:#94a3b8;font-size:11px;font-style:italic">Panel dulu</span>';
 
+    // ================= 2. REVISI NOMOR URUT (displayNo++) =================
+    // Menggunakan incremental counter agar nomor baris konsisten urut 1, 2, 3...
+    const currentNumber = displayNo++;
+    // ======================================================================
+
     html += `<tr>
-      <td><span class="row-num">${i + 1}</span></td>
+      <td><span class="row-num">${currentNumber}</span></td>
       <td style="font-weight:600">${d.pemohon}</td>
       <td><span class="posisi-link" onclick="goToRecommendation(${vacancyData.indexOf(d)})" title="Klik untuk generate rekomendasi">${d.posisi}</span></td>
       <td>${d.level}</td>
@@ -202,7 +220,7 @@ function renderDashboard() {
       <td>${d.workLoc}</td>
       <td>${d.principle}</td>
       <td>${d.reason}</td>
-      <td style="font-size:12px;">${d.department || '<span style=\"color:#94a3b8;font-size:11px;font-style:italic\">-</span>'}</td>
+      <td style="font-size:12px;">${d.department || '<span style="color:#94a3b8;font-size:11px;font-style:italic">-</span>'}</td>
       <td>${tRecHtml}</td>
       <td>${tListHtml}<div style="margin-top:6px;"><span class="posisi-link" onclick="goToRecommendation(${vacancyData.indexOf(d)})" title="Generate rekomendasi kandidat" style="font-size:11px;display:inline-flex;align-items:center;gap:3px;">⭐ Generate Candidate</span></div></td>
       <td style="text-align:center;font-weight:700">${d.manpower}</td>
@@ -325,7 +343,12 @@ function openPanelModal(rowIndex) {
           </div>
           <div style="flex:2;min-width:200px;">
             <label style="display:block;font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">Catatan (Opsional)</label>
-            <input type="text" id="panel-note-${idx}" value="${noteVal}" placeholder="Hasil panel..." style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;">
+            <textarea 
+              id="panel-note-${idx}" 
+              placeholder="Hasil panel..." 
+              rows="2" 
+              style="width:100%; padding:6px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-family:inherit; resize:vertical; box-sizing:border-box;"
+            >${noteVal}</textarea>
           </div>
         </div>
       </div>`;
