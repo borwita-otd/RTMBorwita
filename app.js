@@ -770,7 +770,7 @@ function renderRecommendationTable() {
   const noRes = document.getElementById('recNoResult');
   const countEl = document.getElementById('recCount');
 
-  // Buat array with original rank index preserved — rank TIDAK berubah saat search
+  // Buat array dengan original rank index preserved — rank TIDAK berubah saat search
   // originalRank = posisi asli di currentEligibleCandidates (0-based → tampil +1)
   let filtered;
   if (q) {
@@ -805,8 +805,12 @@ function renderRecommendationTable() {
     noRes.classList.add('hidden');
     let html = '';
     filtered.forEach(({ k, originalRank }, loopIndex) => {
-      // Gunakan loopIndex agar nomor baris (Rank) selalu 1, 2, 3, dst (tidak teracak saat disortir)
-      const i = loopIndex;
+      
+      // ✅ FIX UTAMA: Gunakan originalRank agar nomor urut (Rank) tetap mengacu pada posisi asli kandidat
+      const actualRank = originalRank; // 0-based index asli (M. Syamsi = 5)
+      const displayRank = originalRank + 1; // Rank untuk tampilan (M. Syamsi = 6)
+      const isTop5 = actualRank < 5; // Top 5 hanya berlaku untuk rank asli 1-5
+
       let matchBadge = '';
 
       // Determine badges from actual data stored during scoring
@@ -842,8 +846,8 @@ function renderRecommendationTable() {
       // Fallback
       if (matchBadge === '') matchBadge = '<span class="match-badge match-other">Eligible</span>';
 
-      const isTop5 = i < 5;
-      const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : i === 3 ? 'rank-4' : i === 4 ? 'rank-5' : '';
+      // Stylings & Badges berdasarkan Rank Asli (actualRank)
+      const rankClass = actualRank === 0 ? 'rank-1' : actualRank === 1 ? 'rank-2' : actualRank === 2 ? 'rank-3' : actualRank === 3 ? 'rank-4' : actualRank === 4 ? 'rank-5' : '';
       const ap12mFormatted = Number(k.ap12m).toFixed(2);
 
       // Format phone to wa.me link
@@ -868,9 +872,9 @@ function renderRecommendationTable() {
 
       // Top-5 rank crown emoji — hanya untuk rank asli 1-5
       const crownMap = { 0: '🥇', 1: '🥈', 2: '🥉', 3: '4️⃣', 4: '5️⃣' };
-      const rankLabel = isTop5 ? `<span title="Rank #${i + 1}" style="margin-left:3px;font-size:10px;">${crownMap[i] || ''}</span>` : '';
+      const rankLabel = isTop5 ? `<span title="Rank #${displayRank}" style="margin-left:3px;font-size:10px;">${crownMap[actualRank] || ''}</span>` : '';
 
-      // Keinginan Promosi: hijau jika "Bersedia", merah jika "Tidak Bersedia"
+      // Keinginan Promosi
       const keinginanRaw = String(k.keinginanPromosi || '').trim();
       let keinginanCell = '<span style="color:#94a3b8;font-size:11px;font-style:italic">-</span>';
       if (keinginanRaw) {
@@ -886,7 +890,7 @@ function renderRecommendationTable() {
         keinginanCell = `<span style="display:inline-block;background:${kBg};color:${kColor};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">${keinginanRaw}</span>`;
       }
 
-      // Kesediaan Penempatan: tampilkan apa adanya (teks bebas)
+      // Kesediaan Penempatan
       const kesediaanRaw = String(k.kesediaanPenempatan || '').trim();
       const kesediaanCell = kesediaanRaw
         ? `<span style="font-size:11px;color:#374151;">${kesediaanRaw}</span>`
@@ -894,7 +898,10 @@ function renderRecommendationTable() {
 
       html += `<tr class="${isTop5 ? 'rec-top-row ' + rankClass : ''}">
         <td style="text-align:center"><input type="checkbox" class="rec-check" data-nik="${k.nik}" ${isChecked} onchange="toggleRecCheckByNik('${k.nik}',this.checked)"></td>
-        <td><span class="row-num">${i + 1}</span>${rankLabel}</td>
+        
+        <!-- ✅ MENAMPILKAN RANK ASLI CANDIDATE -->
+        <td><span class="row-num">${displayRank}</span>${rankLabel}</td>
+        
         <td style="font-weight:600;font-size:12px;">${k.nik}</td>
         <td style="font-weight:${isTop5 ? '700' : '500'}">${k.name}</td>
         <td style="text-align:center">${k.age || '-'}</td>
@@ -921,6 +928,7 @@ function renderRecommendationTable() {
     body.innerHTML = html;
   }
 }
+
 
 // --- TOAST ---
 function showToast(msg) {
@@ -950,6 +958,7 @@ function getFilteredCandidates() {
     [k.nik, k.name, k.position, k.branch, k.grade].join(' ').toLowerCase().includes(q)
   );
 }
+
 
 // --- DOWNLOAD REC EXCEL ---
 function downloadRecExcel() {
@@ -995,22 +1004,101 @@ function downloadRecExcel() {
 function downloadDashboardExcel() {
   const statusFilter = document.getElementById('dashStatusFilter')?.value || 'ALL';
   const q = (document.getElementById('dashSearch')?.value || '').toLowerCase();
+  
   let rows = vacancyData.filter(d => {
     if (statusFilter === 'OPEN' && d.status !== 'Open') return false;
     if (statusFilter === 'HOLD' && d.status !== 'Hold') return false;
     if (statusFilter === 'CLOSED' && d.status !== 'Closed' && d.status !== 'Cancel') return false;
     if (q) {
-      const searchStr = [d.pemohon, d.posisi, d.region, d.branch].join(' ').toLowerCase();
+      const searchStr = [d.pemohon, d.posisi, d.region, d.branch, d.department].join(' ').toLowerCase();
       if (!searchStr.includes(q)) return false;
     }
     return true;
   });
-  const headers = ['No', 'Nama Pemohon', 'Posisi Vacant', 'Level', 'Region', 'Branch', 'Work Location', 'Principle', 'Reason', 'Talent List', 'Kebutuhan MP', 'Panel Interview', 'Successor Name', 'Successor Branch', 'Effective Date', 'Bulan Panel', 'Status', 'Source', 'Note'];
+
+  const headers = [
+    'No', 'Department', 'Nama Pemohon', 'Posisi Vacant', 'Level', 'Region', 'Branch', 
+    'Work Location', 'Principle', 'Reason', 'Talent Rec', 'Talent List', 'Kebutuhan MP', 
+    'Panel Interview', 'Successor Name', 'Successor Branch', 'Effective Date', 
+    'Bulan Panel', 'Status', 'Source', 'Note'
+  ];
+
+  // Helper untuk membersihkan teks nama dari array / string
+  const cleanText = (val) => {
+    if (!val) return '';
+    if (Array.isArray(val)) {
+      return val
+        .map(v => (typeof v === 'object' && v !== null ? (v.name || v.text || JSON.stringify(v)) : String(v)))
+        .filter(Boolean)
+        .join('; ');
+    }
+    if (typeof val === 'object' && val !== null) {
+      return val.name || val.text || JSON.stringify(val);
+    }
+    return String(val);
+  };
+
   let csv = headers.join(',') + '\n';
+
   rows.forEach((d, i) => {
-    const row = [i + 1, '"' + (d.pemohon || '').replace(/"/g, '""') + '"', '"' + (d.posisi || '').replace(/"/g, '""') + '"', d.level, '"' + (d.region || '') + '"', '"' + (d.branch || '') + '"', '"' + (d.workLoc || '') + '"', '"' + (d.principle || '') + '"', '"' + (d.reason || '').replace(/"/g, '""') + '"', '"' + (d.talentList || []).join('; ') + '"', d.manpower, '"' + (d.panelInterview || []).join(', ') + '"', '"' + (d.successorName || []).join(', ') + '"', '"' + (d.successorBranch || '') + '"', '"' + (d.effectiveDate || '') + '"', '"' + (d.bulanPanel || '') + '"', d.status, d.source || '', '"' + (typeof d.notes === 'string' ? d.notes : (d.notes || []).map(n => n.date + ' - ' + n.text).join(' | ')).replace(/"/g, '""') + '"'];
+    // 1. KELOLA TALENT REC (Ambil semua jika berupa array atau string)
+    let talentRecStr = cleanText(d.talentRec || d.talentRecs);
+    if (!talentRecStr && d.rawTalentRec) talentRecStr = cleanText(d.rawTalentRec);
+
+    // 2. KELOLA TALENT LIST (Pasti mengambil semua nama)
+    let talentListStr = cleanText(d.talentList || d.talents);
+    
+    // Jika di memori hanya ada 1 nama tapi aslinya array/string panjang, atau jika berupa format "1. Nama 2. Nama"
+    if (typeof talentListStr === 'string' && talentListStr.length > 0) {
+      talentListStr = talentListStr
+        .replace(/^\d+\.\s*/, '')           // Hapus nomor depan "1. "
+        .split(/[\r\n|,;]+|\s*\d+\.\s*/)   // Pecah berdasarkan enter, koma, pipe, atau penomoran "2. "
+        .map(s => s.trim())
+        .filter(Boolean)
+        .join('; ');                        // Gabungkan dengan titik koma (;)
+    }
+
+    // 3. Panel Interview & Successor Name
+    const panelStr = cleanText(d.panelApproved || d.panelInterview);
+    const successorStr = cleanText(d.successor || d.successorName);
+
+    // 4. Catatan / Notes
+    let notesStr = '';
+    if (typeof d.notes === 'string') {
+      notesStr = d.notes;
+    } else if (Array.isArray(d.notes)) {
+      notesStr = d.notes.map(n => (n.date ? n.date + ' - ' : '') + (n.text || n)).join(' | ');
+    } else {
+      notesStr = cleanText(d.notes);
+    }
+
+    const row = [
+      i + 1,
+      '"' + (d.department || '').replace(/"/g, '""') + '"',
+      '"' + (d.pemohon || '').replace(/"/g, '""') + '"',
+      '"' + (d.posisi || '').replace(/"/g, '""') + '"',
+      '"' + (d.level || '') + '"',
+      '"' + (d.region || '') + '"',
+      '"' + (d.branch || '') + '"',
+      '"' + (d.workLoc || '') + '"',
+      '"' + (d.principle || '') + '"',
+      '"' + (d.reason || '').replace(/"/g, '""') + '"',
+      '"' + talentRecStr.replace(/"/g, '""') + '"',            // ✅ Talent Rec (Semua nama keluar)
+      '"' + talentListStr.replace(/"/g, '""') + '"',           // ✅ Talent List (Neni Lestari; Yogi Prasetyo)
+      d.manpower || 1,
+      '"' + panelStr.replace(/"/g, '""') + '"',
+      '"' + successorStr.replace(/"/g, '""') + '"',
+      '"' + cleanText(d.successorBranch).replace(/"/g, '""') + '"',
+      '"' + cleanText(d.effectiveDate).replace(/"/g, '""') + '"',
+      '"' + (d.bulanPanel || '') + '"',
+      '"' + (d.status || 'Open') + '"',
+      '"' + (d.source || '') + '"',
+      '"' + notesStr.replace(/"/g, '""') + '"'
+    ];
+
     csv += row.join(',') + '\n';
   });
+
   const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1018,7 +1106,7 @@ function downloadDashboardExcel() {
   a.download = 'Dashboard_Vacancy_' + new Date().toISOString().slice(0, 10) + '.csv';
   a.click();
   URL.revokeObjectURL(url);
-  showToast('\u2705 File downloaded!');
+  showToast('✅ File downloaded!');
 }
 
 // ==========================================================
@@ -1062,6 +1150,7 @@ function getUniqueHAVValues(field) {
   const vals = [...new Set(HAV_DB.map(k => String(k[field] || '').trim()).filter(v => v && v !== 'undefined' && v !== ''))];
   return vals.sort();
 }
+
 
 function renderMasterFilter() {
   const levelSelect = document.getElementById('mfLevelSelect');
@@ -1131,7 +1220,25 @@ function renderMasterFilter() {
   renderCheckboxes('mfExcludePsi', 'mf-excl-psi', allPsi, cfg.excludePsikotest, 'exclude');
 
   // CEK SP (EXCLUDE)
-  const allSP = HAV_DB.length > 0 ? getUniqueHAVValues('sp') : ['Yes', 'No'];
+  // 1. Ambil data mentah dari database/array
+  const rawSP = HAV_DB.length > 0 ? getUniqueHAVValues('sp') : ['Yes', 'No'];
+
+  // 2. Format tanggal menjadi "DD MMMM YYYY" (misal: 04 September 2023)
+  const allSP = rawSP.map(val => {
+    // Cek apakah nilai berupa string tanggal ISO yang valid
+    const timestamp = Date.parse(val);
+    if (!isNaN(timestamp) && val !== 'Yes' && val !== 'No') {
+      const dateObj = new Date(val);
+      return dateObj.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'long', // Mengubah angka bulan menjadi teks (misal: "September")
+        year: 'numeric'
+      });
+    }
+    return val; // Jika berupa 'Yes', 'No', atau string biasa, biarkan tetap
+  });
+
+  // 3. Render checkbox dengan tanggal yang sudah diformat
   renderCheckboxes('mfExcludeSP', 'mf-excl-sp', allSP, cfg.excludeSP, 'exclude');
 }
 
