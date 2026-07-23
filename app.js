@@ -210,8 +210,24 @@ function renderDashboard() {
     const currentNumber = displayNo++;
     // ======================================================================
 
+    // Format Tanggal Request (Menggunakan timestamp atau requestDate dari data Google Sheet)
+    let reqDateFormatted = '-';
+    if (d.timestamp) {
+      const dt = new Date(d.timestamp);
+      reqDateFormatted = !isNaN(dt.getTime()) 
+        ? dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) 
+        : d.timestamp;
+    } else if (d.requestDate) {
+      reqDateFormatted = d.requestDate;
+    }
+
     html += `<tr>
       <td><span class="row-num">${currentNumber}</span></td>
+      
+      <!-- 1. TAMBAHKAN KOLOM REQUEST DATE DI SINI (Kolom Ke-2) -->
+      <td style="white-space:nowrap;font-size:12px;color:#64748b;">${reqDateFormatted}</td>
+      
+      <!-- 2. KOLOM REQUESTOR SEKARANG MENJADI KOLOM KE-3 -->
       <td style="font-weight:600">${d.pemohon}</td>
       <td><span class="posisi-link" onclick="goToRecommendation(${vacancyData.indexOf(d)})" title="Klik untuk generate rekomendasi">${d.posisi}</span></td>
       <td>${d.level}</td>
@@ -230,7 +246,13 @@ function renderDashboard() {
         <option value="">- Pilih Branch -</option>
         ${['Pusat','Surabaya','Kediri','Madiun','Makassar','Latubo','Bandung','Bali','Malang','Jember','Yogyakarta','Semarang','Cirebon','Tegal','Madura','Palopo','Pare-Pare','Mamuju','Lombok','Manado','Puma','Solo','Palu','Jakarta','Ternate','Purwokerto','Sukabumi','Tasikmalaya','Subang','Pati','Kendari','Kupang','Gorontalo','Poso','Bone','Karawang','Bau-Bau','Sumbawa','Bengkulu','Bima','Maumere','Lampung','Cikarang','Klaten','Ruteng','Palembang'].map(b => `<option value="${b}" ${d.successorBranch === b ? 'selected' : ''}>${b}</option>`).join('')}
       </select></td>
-      <td><input type="date" class="input-field" value="${d.effectiveDate || ''}" onchange="setEffectiveDate(${d.rowIndex},this.value)" style="width:130px;padding:5px 8px;font-size:12px;"></td>
+      <td>
+        <input type="date" 
+              class="input-field" 
+              value="${formatEffectiveDateForInput(d.effectiveDate)}" 
+              onchange="setEffectiveDate(${d.rowIndex},this.value)" 
+              style="width:130px;padding:5px 8px;font-size:12px;">
+      </td>
       <td>${d.bulanPanel || '<span style="color:#94a3b8;font-size:11px;font-style:italic">-</span>'}</td>
       <td><select class="source-select" onchange="changeSource(${d.rowIndex},this.value)">
         <option value="" ${!d.source ? 'selected' : ''}>-</option>
@@ -1000,28 +1022,48 @@ function downloadRecExcel() {
   showToast('\u2705 ' + (checked.length > 0 ? checked.length + ' selected candidates' : 'All candidates') + ' downloaded!');
 }
 
-// --- DOWNLOAD DASHBOARD EXCEL ---
+// --- DOWNLOAD DASHBOARD EXCEL (.XLSX) ---
 function downloadDashboardExcel() {
   const statusFilter = document.getElementById('dashStatusFilter')?.value || 'ALL';
   const q = (document.getElementById('dashSearch')?.value || '').toLowerCase();
-  
+  const dateStart = document.getElementById('dashDateStart')?.value;
+  const dateEnd = document.getElementById('dashDateEnd')?.value;
+
   let rows = vacancyData.filter(d => {
+    // 1. Filter Tanggal
+    if (dateStart || dateEnd) {
+      if (d.timestamp) {
+        const ts = new Date(d.timestamp).toISOString().slice(0, 10);
+        if (dateStart && ts < dateStart) return false;
+        if (dateEnd && ts > dateEnd) return false;
+      }
+    }
+
+    // 2. Filter Status
     if (statusFilter === 'OPEN' && d.status !== 'Open') return false;
     if (statusFilter === 'HOLD' && d.status !== 'Hold') return false;
     if (statusFilter === 'CLOSED' && d.status !== 'Closed' && d.status !== 'Cancel') return false;
+
+    // 3. Filter Pencarian Text
     if (q) {
-      const searchStr = [d.pemohon, d.posisi, d.region, d.branch, d.department].join(' ').toLowerCase();
+      const searchStr = [
+        d.pemohon, 
+        d.posisi, 
+        d.region, 
+        d.branch, 
+        d.department,
+        ...(d.talentList || []),
+        ...(d.talentRec || [])
+      ].join(' ').toLowerCase();
       if (!searchStr.includes(q)) return false;
     }
     return true;
   });
 
-  const headers = [
-    'No', 'Department', 'Nama Pemohon', 'Posisi Vacant', 'Level', 'Region', 'Branch', 
-    'Work Location', 'Principle', 'Reason', 'Talent Rec', 'Talent List', 'Kebutuhan MP', 
-    'Panel Interview', 'Successor Name', 'Successor Branch', 'Effective Date', 
-    'Bulan Panel', 'Status', 'Source', 'Note'
-  ];
+  if (rows.length === 0) {
+    showToast('⚠️ Tidak ada data untuk di-download');
+    return;
+  }
 
   // Helper untuk membersihkan teks nama dari array / string
   const cleanText = (val) => {
@@ -1038,31 +1080,39 @@ function downloadDashboardExcel() {
     return String(val);
   };
 
-  let csv = headers.join(',') + '\n';
+  // Buat array of objects untuk sheet Excel (URUTAN SESUAI TABEL WEB)
+  const excelData = rows.map((d, i) => {
+    // Format Tanggal Request (Sama seperti renderDashboard)
+    let reqDateFormatted = '-';
+    if (d.timestamp) {
+      const dt = new Date(d.timestamp);
+      reqDateFormatted = !isNaN(dt.getTime()) 
+        ? dt.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) 
+        : d.timestamp;
+    } else if (d.requestDate) {
+      reqDateFormatted = d.requestDate;
+    }
 
-  rows.forEach((d, i) => {
-    // 1. KELOLA TALENT REC (Ambil semua jika berupa array atau string)
+    // 1. KELOLA TALENT REC
     let talentRecStr = cleanText(d.talentRec || d.talentRecs);
     if (!talentRecStr && d.rawTalentRec) talentRecStr = cleanText(d.rawTalentRec);
 
-    // 2. KELOLA TALENT LIST (Pasti mengambil semua nama)
+    // 2. KELOLA TALENT LIST
     let talentListStr = cleanText(d.talentList || d.talents);
-    
-    // Jika di memori hanya ada 1 nama tapi aslinya array/string panjang, atau jika berupa format "1. Nama 2. Nama"
     if (typeof talentListStr === 'string' && talentListStr.length > 0) {
       talentListStr = talentListStr
-        .replace(/^\d+\.\s*/, '')           // Hapus nomor depan "1. "
-        .split(/[\r\n|,;]+|\s*\d+\.\s*/)   // Pecah berdasarkan enter, koma, pipe, atau penomoran "2. "
+        .replace(/^\d+\.\s*/, '')
+        .split(/[\r\n|,;]+|\s*\d+\.\s*/)
         .map(s => s.trim())
         .filter(Boolean)
-        .join('; ');                        // Gabungkan dengan titik koma (;)
+        .join('; ');
     }
 
-    // 3. Panel Interview & Successor Name
+    // 3. Panel Interview & Successor
     const panelStr = cleanText(d.panelApproved || d.panelInterview);
     const successorStr = cleanText(d.successor || d.successorName);
 
-    // 4. Catatan / Notes
+    // 4. Notes
     let notesStr = '';
     if (typeof d.notes === 'string') {
       notesStr = d.notes;
@@ -1072,41 +1122,49 @@ function downloadDashboardExcel() {
       notesStr = cleanText(d.notes);
     }
 
-    const row = [
-      i + 1,
-      '"' + (d.department || '').replace(/"/g, '""') + '"',
-      '"' + (d.pemohon || '').replace(/"/g, '""') + '"',
-      '"' + (d.posisi || '').replace(/"/g, '""') + '"',
-      '"' + (d.level || '') + '"',
-      '"' + (d.region || '') + '"',
-      '"' + (d.branch || '') + '"',
-      '"' + (d.workLoc || '') + '"',
-      '"' + (d.principle || '') + '"',
-      '"' + (d.reason || '').replace(/"/g, '""') + '"',
-      '"' + talentRecStr.replace(/"/g, '""') + '"',            // ✅ Talent Rec (Semua nama keluar)
-      '"' + talentListStr.replace(/"/g, '""') + '"',           // ✅ Talent List (Neni Lestari; Yogi Prasetyo)
-      d.manpower || 1,
-      '"' + panelStr.replace(/"/g, '""') + '"',
-      '"' + successorStr.replace(/"/g, '""') + '"',
-      '"' + cleanText(d.successorBranch).replace(/"/g, '""') + '"',
-      '"' + cleanText(d.effectiveDate).replace(/"/g, '""') + '"',
-      '"' + (d.bulanPanel || '') + '"',
-      '"' + (d.status || 'Open') + '"',
-      '"' + (d.source || '') + '"',
-      '"' + notesStr.replace(/"/g, '""') + '"'
-    ];
-
-    csv += row.join(',') + '\n';
+    // Mapping header ke isi kolom (Disesuaikan Presisi Urutannya dengan Header Website)
+    return {
+      'NO': i + 1,
+      'REQUEST DATE': reqDateFormatted,  // 👈 Diletakkan di Kolom Ke-2
+      'REQUESTOR': d.pemohon || '',
+      'VACANT POSITION': d.posisi || '',
+      'LEVEL': d.level || '',
+      'REGION': d.region || '',
+      'BRANCH': d.branch || '',
+      'WORK LOCATION': d.workLoc || '',
+      'PRINCIPLE': d.principle || '',
+      'REASON': d.reason || '',
+      'DEPARTMENT': d.department || '',
+      'TALENT REC': talentRecStr,
+      'TALENT LIST': talentListStr,
+      'MANPOWER': d.manpower || 1,
+      'PANEL INTERVIEW': panelStr,
+      'SUCCESSOR': successorStr,
+      'SUCCESSOR BRANCH': cleanText(d.successorBranch),
+      'EFFECTIVE DATE': cleanText(d.effectiveDate),
+      'BULAN PANEL': d.bulanPanel || '',
+      'SOURCE': d.source || '',
+      'STATUS': d.status || 'Open',
+      'NOTE': notesStr
+    };
   });
 
-  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'Dashboard_Vacancy_' + new Date().toISOString().slice(0, 10) + '.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('✅ File downloaded!');
+  // --- PROSES EXPORT XLSX DENGAN SHEETJS ---
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Dashboard Vacancy");
+
+  // Auto-width kolom agar tampilan rapi saat dibuka di Excel
+  const columnWidths = Object.keys(excelData[0] || {}).map(key => ({
+    wch: Math.max(key.length + 3, 12)
+  }));
+  worksheet['!cols'] = columnWidths;
+
+  // Simpan/Download file .xlsx
+  const fileName = 'Dashboard_Vacancy_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+  XLSX.writeFile(workbook, fileName);
+
+  showToast('✅ File Excel (.xlsx) berhasil di-download!');
 }
 
 // ==========================================================
@@ -1742,3 +1800,47 @@ function _updateSortArrows(bodyId) {
 document.addEventListener('DOMContentLoaded', () => {
   fetchInitialData();
 });
+
+
+
+
+function formatEffectiveDateForInput(dateStr) {
+  if (!dateStr) return '';
+  
+  const str = String(dateStr).trim();
+  if (!str) return '';
+
+  // 1. Jika sudah berformat YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+
+  // 2. Jika berformat DD-MM-YYYY atau DD/MM/YYYY (contoh di sheet kamu: 06-09-2025)
+  const parts = str.split(/[-/.]/);
+  if (parts.length === 3) {
+    let p1 = parts[0].padStart(2, '0');
+    let p2 = parts[1].padStart(2, '0');
+    let p3 = parts[2];
+
+    // Jika formatnya DD-MM-YYYY (p3 adalah tahun 4 digit)
+    if (p3.length === 4) {
+      return `${p3}-${p2}-${p1}`; // Ubah ke YYYY-MM-DD
+    }
+    // Jika formatnya YYYY-MM-DD (p1 adalah tahun 4 digit)
+    if (p1.length === 4) {
+      return `${p1}-${p2}-${p3}`;
+    }
+  }
+
+  // 3. Fallback jika berupa Date Object/ISO String
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  return '';
+}
+
